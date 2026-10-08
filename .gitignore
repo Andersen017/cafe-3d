@@ -1,0 +1,10 @@
+.work/
+node_modules/
+.pnpm-store/
+*.dwg
+*.dxf
+*.pdf
+*.xlsx
+*.log
+*.err
+desktop.ini

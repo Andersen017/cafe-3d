@@ -1,0 +1,21 @@
+{
+  "revision": "R01",
+  "date": "2026-10-08",
+  "elements": 908,
+  "layers": 24,
+  "rooms": 10,
+  "glbBytes": 4017164,
+  "bounds": {
+    "min": [
+      -4,
+      -0.205,
+      -20
+    ],
+    "max": [
+      14.6,
+      4.94,
+      6
+    ]
+  },
+  "runtime": "three 0.180.0"
+}

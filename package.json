@@ -1,0 +1,13 @@
+{
+  "name": "cafe-3d",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Послойная архитектурная модель кафе и интерактивный просмотрщик",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "validate": "node scripts/validate.mjs",
+    "start": "node scripts/server.mjs"
+  },
+  "dependencies": {"three": "0.180.0"}
+}

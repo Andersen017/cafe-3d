@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#253b37"><meta name="description" content="Интерактивная модель кафе: архитектура, оборудование и подключения по слоям. Обзор, план и прогулка внутри здания.">
+  <title>Кафе / проект в 3D</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">{"imports":{"three":"./vendor/build/three.module.js","three/addons/":"./vendor/examples/jsm/"}}</script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">К</span><div><strong>КАФЕ</strong><span>Проект в 3D</span></div></div>
+    <div class="revision" id="revision">R01 · 08.10.2026</div>
+    <div class="top-actions"><button id="about-button" class="quiet">О модели</button><button id="fullscreen-button" class="icon-button" title="Полный экран" aria-label="Полный экран">⛶</button></div>
+  </header>
+  <main>
+    <aside id="sidebar" aria-label="Управление моделью">
+      <div class="sidebar-head"><h1>Модель проекта</h1><button id="close-panel" class="icon-button" aria-label="Закрыть панель">×</button></div>
+      <p class="intro">Осмотрите здание. Отключите слои, чтобы увидеть проект изнутри.</p>
+      <nav class="panel-tabs" aria-label="Панели"><button data-panel="layers" class="active">Слои</button><button data-panel="rooms">Помещения</button></nav>
+      <section id="layers-panel">
+        <div class="section-title"><span>Состав модели</span><button id="restore-layers" class="text-button">Сбросить</button></div>
+        <div id="layer-list"></div>
+        <div class="empty-systems"><span class="empty-dot"></span>Трассы сетей добавятся при разработке инженерных разделов.</div>
+      </section>
+      <section id="rooms-panel" hidden><div class="section-title">Выбрать помещение</div><div id="room-list"></div></section>
+      <div class="slice-card"><label for="slice"><input id="slice-enabled" type="checkbox"> Горизонтальный срез</label><div class="slice-row"><input id="slice" type="range" min="0.2" max="5.2" value="1.6" step="0.05" aria-label="Высота среза"><output id="slice-value">1,60 м</output></div></div>
+      <button id="issues-button" class="issues-button"><span class="issue-dot"></span><span>Требует согласования</span><span id="issue-count">4</span></button>
+      <div class="sidebar-footer">АР 02.10 · ТХ 07.10 · КМ R01<br><span>Модель дополняется по мере проектирования</span></div>
+    </aside>
+    <section id="viewport" aria-label="Трёхмерная модель кафе">
+      <div id="canvas-host"></div>
+      <div class="viewer-toolbar" role="toolbar" aria-label="Режим просмотра">
+        <button id="panel-button" class="panel-toggle" aria-label="Открыть слои">☷ <span>Слои</span></button>
+        <button data-view="overview" class="active">Обзор</button>
+        <button data-view="plan">План</button>
+        <button data-view="interior">Интерьер</button>
+        <button data-view="frame">Каркас</button>
+        <button data-view="engineering">Сети</button>
+        <button data-view="walk" class="walk-button">Прогулка</button>
+      </div>
+      <div class="view-label" id="view-label"><span class="live-dot"></span>Общий вид</div>
+      <div class="right-tools"><button id="home-button" class="icon-button" title="Исходный вид" aria-label="Исходный вид">⌂</button><button id="png-button" class="icon-button" title="Сохранить PNG" aria-label="Сохранить PNG">▧</button><select id="facade-view" aria-label="Вид фасада"><option value="">Фасады</option><option value="front">Навес / ось А</option><option value="rear">Терраса / ось В</option><option value="left">Фасад по оси 1</option><option value="right">Фасад по оси 2</option></select></div>
+      <div class="coordination-notice" id="km-notice" hidden>КМ R01: уклон 5°. Архитектура: 3°. Каркас требует согласования.</div>
+      <div id="selection" class="selection-card" hidden><button id="close-selection" class="icon-button" aria-label="Закрыть карточку">×</button><div id="selection-content"></div><div class="selection-actions"><button id="focus-selection">Приблизить</button><button id="hide-selection">Скрыть элемент</button><button id="restore-elements" hidden>Вернуть скрытые</button></div></div>
+      <div class="view-bottom"><span id="hint">Мышь: вращение · колесо: масштаб · правая кнопка: сдвиг</span><span id="visible-count"></span></div>
+      <div id="walk-ui" hidden><div class="walk-controls"><label>Начать в <select id="walk-start" aria-label="Начальная точка прогулки"></select></label><button id="exit-walk">Выйти из прогулки</button></div><div class="reticle">+</div><div id="joystick" aria-label="Джойстик прогулки"><span id="joystick-knob"></span></div><span class="walk-look-hint">Потяните справа, чтобы осмотреться</span></div>
+      <div class="legend" id="engineering-legend" hidden><span><i class="em-dot"></i>Электрика</span><span><i class="water-dot"></i>Вода</span><span><i class="sewage-dot"></i>Водоотведение</span></div>
+      <div id="loading"><div class="loading-mark">К</div><strong>Загружаем модель</strong><span id="loading-status">Архитектура · технология · подключения</span><div class="loading-track"><span id="loading-progress"></span></div></div>
+      <div id="toast" role="status" hidden></div>
+    </section>
+  </main>
+  <dialog id="about-dialog"><button class="dialog-close icon-button" aria-label="Закрыть">×</button><p class="eyebrow">Кафе / R01</p><h2>Проект, который можно осмотреть</h2><p>Здание, навес, терраса и оборудование объединены в одной модели. Каждый раздел включается отдельно. Новые решения добавляются в те же слои по мере проектирования.</p><div id="about-content"></div><div class="dialog-actions"><a href="./assets/cafe.glb" download>Скачать модель GLB</a><a href="./docs/MODEL_PASSPORT.md" target="_blank" rel="noopener">Паспорт модели</a></div></dialog>
+  <dialog id="issues-dialog"><button class="dialog-close icon-button" aria-label="Закрыть">×</button><p class="eyebrow">Согласование разделов</p><h2>Открытые вопросы</h2><div id="issues-content"></div><p class="dialog-note">Отметки фиксируют известные расхождения исходных данных. Визуальный осмотр дополняет проверку по чертежам.</p></dialog>
+  <noscript>Для интерактивного просмотра включите JavaScript. <a href="./assets/cafe.glb">Скачать GLB</a></noscript>
+  <script type="module" src="./viewer.mjs"></script>
+</body>
+</html>
