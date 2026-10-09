@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker} from './scripts/walk.mjs';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs';
+import {elementInVariant,variantById} from './scripts/variants.mjs';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -9,26 +10,63 @@ const number=n=>n.toLocaleString('ru-RU',{maximumFractionDigits:2,minimumFractio
 let data,renderer,scene,perspective,orthographic,camera,controls,model;
 const layers=new Map(),elementObjects=new Map(),metadata=new Map(),hiddenElements=new Set();
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
+let activeVariant='lstk';
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
 const keys=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const clipPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),sliceHeight);
-let toastTimer,resizeObserver,labelItems=[];
+let toastTimer,resizeObserver,labelItems=[],framingFactor=1;
 const target=new THREE.Vector3(5.3,1.4,-5.8);
 
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function setLayer(id,visible){const layer=layers.get(id);if(layer)layer.visible=visible;updateLayerUI();}
+function applyVariant(){
+  for(const e of data.elements){const o=elementObjects.get(e.id);if(o)o.visible=elementInVariant(e,activeVariant)&&!hiddenElements.has(e.id);}
+  data.activeVariant=activeVariant;
+}
+function setVariant(id){
+  activeVariant=variantById(data,id).id;applyVariant();
+  for(const l of data.layers.filter(l=>l.variant))layers.get(l.id).visible=l.variant===activeVariant && l.defaultVisible;
+  if(activeView==='frame')setView('frame');else{updateLayerUI();viewUI();}
+  $('selection').hidden=true;selected=null;
+  for(const input of document.querySelectorAll('input[name="construction-variant"]'))input.checked=input.value===activeVariant;
+  const url=new URL(location.href);url.searchParams.set('variant',activeVariant);history.replaceState(null,'',url);
+}
+function variantPanel(){
+  for(const v of data.variants.options){
+    const label=document.createElement('label');const input=document.createElement('input');input.type='radio';input.name='construction-variant';input.value=v.id;input.checked=v.id===activeVariant;
+    input.addEventListener('change',()=>setVariant(v.id));
+    const span=document.createElement('span');span.innerHTML=`<strong>${escape(v.name)}</strong><small>${escape(v.subtitle)}</small>`;label.append(input,span);$('variant-options').append(label);
+  }
+}
+function catalogPanel(){
+  for(const c of [...data.catalog].sort((a,b)=>a.code.localeCompare(b.code,'ru',{numeric:true}))){
+    const b=document.createElement('button');b.className='catalog-item';
+    b.innerHTML=`<span class="catalog-code">${escape(c.code)}</span><span><strong>${escape(c.name)}</strong><small>${escape([c.manufacturer,c.model].filter(Boolean).join(' ')) || 'Тип по ТХ'}</small><small>${c.quantity} шт. · размещено ${c.placedIds.length}${c.unplacedQuantity?' · без размещения '+c.unplacedQuantity:''}</small></span>`;
+    b.addEventListener('click',()=>{
+      if(c.placedIds.length){
+        setView('interior');for(const id of c.placedIds){const e=metadata.get(id);setLayer(e.layer,true);hiddenElements.delete(id);}applyVariant();chooseElement(c.placedIds[0]);focusSelected();
+      }else{
+        selected=null;$('selection-content').innerHTML=`<p class="eyebrow">Каталог ТХ · ${escape(c.code)}</p><h2>${escape(c.name)}</h2><p class="property"><span>Количество по спецификации</span>${c.quantity} шт.</p><p class="property">Оставлено без размещения до уточнения плана.</p>`;$('selection').hidden=false;$('hide-selection').disabled=true;$('focus-selection').disabled=true;
+      }
+      document.body.classList.remove('panel-open');
+    });$('catalog-list').append(b);
+  }
+}
 function updateLayerUI(){
   if(!data)return;
   for(const input of document.querySelectorAll('input[data-layer]'))input.checked=!!layers.get(input.dataset.layer)?.visible;
   for(const input of document.querySelectorAll('input[data-group]')){
-    const group=data.layers.filter(l=>l.group===input.dataset.group);
+    const group=data.layers.filter(l=>l.group===input.dataset.group && (!l.variant || l.variant===activeVariant));
     const n=group.filter(l=>layers.get(l.id)?.visible).length;
     input.checked=n===group.length;input.indeterminate=n>0&&n<group.length;
   }
-  $('km-notice').hidden=!layers.get('km.reference')?.visible;
+  for(const row of document.querySelectorAll('[data-layer-row]')){
+    const l=data.layers.find(l=>l.id===row.dataset.layerRow);row.hidden=!!l.variant&&l.variant!==activeVariant;
+    row.querySelector('.layer-count').textContent=data.elements.filter(e=>e.layer===l.id&&elementInVariant(e,activeVariant)).length;
+  }
   $('engineering-legend').hidden=!['em.points','vk.water','vk.sewage'].some(id=>layers.get(id)?.visible);
   for(const [i,id] of ['em.points','vk.water','vk.sewage'].entries())$('engineering-legend').children[i].hidden=!layers.get(id)?.visible;
-  const count=data.elements.filter(e=>layers.get(e.layer)?.visible&&!hiddenElements.has(e.id)).length;
+  const count=data.elements.filter(e=>elementInVariant(e,activeVariant)&&layers.get(e.layer)?.visible&&!hiddenElements.has(e.id)).length;
   $('visible-count').textContent=count+' элементов на экране';
 }
 function setSlice(enabled,height=sliceHeight){
@@ -46,10 +84,10 @@ function layerPanel(){
     const summary=document.createElement('summary');
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.dataset.group=name;checkbox.setAttribute('aria-label',name+': все слои');
     checkbox.addEventListener('click',event=>event.stopPropagation());
-    checkbox.addEventListener('change',()=>{for(const l of items)layers.get(l.id).visible=checkbox.checked;updateLayerUI();});
+    checkbox.addEventListener('change',()=>{for(const l of items)if(!l.variant || l.variant===activeVariant)layers.get(l.id).visible=checkbox.checked;updateLayerUI();});
     summary.append(checkbox,document.createTextNode(name));details.append(summary);
     for(const l of items){
-      const label=document.createElement('label');label.className='layer-row'+(l.id==='km.reference'?' reference-row':'');label.title=l.description || l.name;
+      const label=document.createElement('label');label.className='layer-row';label.dataset.layerRow=l.id;label.title=l.description || l.name;
       const input=document.createElement('input');input.type='checkbox';input.dataset.layer=l.id;input.setAttribute('aria-label',l.name);
       input.addEventListener('change',()=>setLayer(l.id,input.checked));
       const span=document.createElement('span');span.textContent=l.name;
@@ -85,13 +123,13 @@ function updateLabels(){
 function cameraView(position,lookAt,useOrtho=false){
   controls.dispose();camera=useOrtho?orthographic:perspective;
   camera.position.fromArray(position);camera.up.set(0,1,0);
-  if(!useOrtho&&!walk){const aspect=$('viewport').clientWidth/$('viewport').clientHeight;const factor=Math.max(1,.82/aspect);const focus=new THREE.Vector3().fromArray(lookAt);camera.position.sub(focus).multiplyScalar(factor).add(focus);}
+  if(!useOrtho&&!walk){const aspect=$('viewport').clientWidth/$('viewport').clientHeight;framingFactor=Math.max(1,.82/aspect);const focus=new THREE.Vector3().fromArray(lookAt);camera.position.sub(focus).multiplyScalar(framingFactor).add(focus);}
   if(useOrtho){camera.up.set(0,0,-1);camera.zoom=1;}
   controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.085;
   controls.minDistance=1;controls.maxDistance=65;controls.maxPolarAngle=Math.PI/2-.015;
   controls.target.fromArray(lookAt);controls.enableRotate=!useOrtho;controls.update();resize();
 }
-function defaultLayers(){for(const l of data.layers)layers.get(l.id).visible=l.defaultVisible;updateLayerUI();}
+function defaultLayers(){for(const l of data.layers)layers.get(l.id).visible=l.defaultVisible&&(!l.variant||l.variant===activeVariant);applyVariant();updateLayerUI();}
 function setView(view){
   if(view==='walk'){startWalk($('walk-start').value || 'hall');return;}
   if(walk)exitWalk(false);
@@ -104,7 +142,7 @@ function setView(view){
     for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling'])layers.get(id).visible=false;
     setSlice(true,2.65);cameraView([17,12,7],[5.3,1,-5.3]);
   }else if(view==='frame'){
-    for(const l of data.layers)layers.get(l.id).visible=['km.reference','ar.floors','env.site'].includes(l.id);
+    for(const l of data.layers)layers.get(l.id).visible=[...variantById(data,activeVariant).frameLayers,'ar.floors','env.site'].includes(l.id);
     setSlice(false);cameraView([21,16,17],[5.3,2,-5.3]);
   }else if(view==='engineering'){
     for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling','ar.canopy','ar.walls.outer','ar.walls.inner','design.exterior'])layers.get(id).visible=false;
@@ -115,7 +153,8 @@ function setView(view){
 }
 function viewUI(){
   document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===activeView);b.setAttribute('aria-pressed',String(b.dataset.view===activeView));});
-  const titles={overview:'Общий вид',plan:'План / срез '+number(sliceHeight)+' м',interior:'Интерьер / открытая модель',frame:'Предварительный каркас КМ R01',engineering:'Точки подключения ТХ',walk:'Прогулка внутри проекта'};
+  const titles={overview:'Общий вид',plan:'План / срез '+number(sliceHeight)+' м',interior:'Интерьер / открытая модель',frame:'Каркас',engineering:'Точки подключения ТХ',walk:'Прогулка внутри проекта'};
+  titles[activeView]+=' · '+variantById(data,activeVariant).name;
   $('view-label').innerHTML='<span class="live-dot"></span>'+titles[activeView];
   $('walk-ui').hidden=!walk;
   $('hint').textContent=walk?'WASD / стрелки: идти · потяните мышью: осмотр · Esc: выйти':matchMedia('(pointer:coarse)').matches?'Один палец: вращение · два: масштаб и сдвиг':'Мышь: вращение · колесо: масштаб · правая кнопка: сдвиг';
@@ -130,6 +169,7 @@ function chooseRoom(r){
   else cameraView([x+d*.7,d*.8+2,z+d*.8],[x,.7,z]);
   selected={room:r};$('selection-content').innerHTML=`<p class="eyebrow">Помещение / АР</p><h2>${escape(r.name)}</h2><p class="property"><span>Площадь по экспликации АР</span>${number(r.area)} м²</p><p class="property"><span>Уровень пола</span>${number(r.height)} м</p>`;
   $('selection').hidden=false;$('hide-selection').disabled=true;document.body.classList.remove('panel-open');
+  $('focus-selection').disabled=false;
 }
 function chooseElement(id){
   const e=metadata.get(id);if(!e)return;selected={id};
@@ -140,6 +180,7 @@ function chooseElement(id){
     Object.entries(e.properties).map(([key,val])=>`<p class="property"><span>${escape(key)}</span>${escape(val)}</p>`).join('')+
     `<p class="property"><span>Элемент / источник</span>${escape(e.id)} · ${escape(e.sources.join(', '))}</p>`;
   $('selection').hidden=false;$('hide-selection').disabled=false;
+  $('focus-selection').disabled=false;
 }
 function pick(event){
   const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
@@ -157,7 +198,11 @@ function focusSelected(){
   if(!selected)return;if(selected.room){chooseRoom(selected.room);return;}
   if(walk)exitWalk(false);
   const o=elementObjects.get(selected.id);const b=new THREE.Box3().setFromObject(o);const p=b.getCenter(new THREE.Vector3());const d=Math.max(b.getSize(new THREE.Vector3()).length(),1.6);
-  cameraView([p.x+d*.7,p.y+d*.75,p.z+d*.8],p.toArray());
+  const room=data.rooms.find(r=>inPolygon(p.x,p.z,r.points));
+  let dx=.7,dz=.8;
+  if(room){const x=room.focus[0]-p.x,z=room.focus[2]-p.z,len=Math.hypot(x,z);if(len>.1){dx=x/len;dz=z/len;}}
+  if(activeView==='interior')setSlice(true,Math.min(5.2,Math.max(1.2,b.max.y+.12)));
+  cameraView([p.x+d*dx,Math.max(p.y+d*.95,sliceActive?sliceHeight+.8:0),p.z+d*dz],p.toArray());
 }
 function startWalk(id){
   const start=data.walk.starts.find(s=>s.id===id)||data.walk.starts[0];
@@ -184,6 +229,7 @@ function updateWalk(dt){
 function resize(){
   if(!renderer)return;const w=$('viewport').clientWidth,h=$('viewport').clientHeight;
   renderer.setSize(w,h);perspective.aspect=w/h;perspective.updateProjectionMatrix();
+  if(camera===perspective&&!walk&&controls){const factor=Math.max(1,.82/(w/h));camera.position.sub(controls.target).multiplyScalar(factor/framingFactor).add(controls.target);framingFactor=factor;}
   const size=Math.max(25.2,14.5*h/w);orthographic.left=-size*w/h/2;orthographic.right=size*w/h/2;orthographic.top=size/2;orthographic.bottom=-size/2;orthographic.updateProjectionMatrix();
 }
 function events(){
@@ -191,9 +237,9 @@ function events(){
   for(const id of ['panel-button','close-panel'])$(id).addEventListener('click',()=>document.body.classList.toggle('panel-open'));
   document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('[data-panel]').forEach(n=>n.classList.toggle('active',n===b));
-    $('layers-panel').hidden=b.dataset.panel!=='layers';$('rooms-panel').hidden=b.dataset.panel!=='rooms';
+    $('layers-panel').hidden=b.dataset.panel!=='layers';$('rooms-panel').hidden=b.dataset.panel!=='rooms';$('catalog-panel').hidden=b.dataset.panel!=='catalog';
   }));
-  $('restore-layers').addEventListener('click',()=>{defaultLayers();for(const id of hiddenElements)elementObjects.get(id).visible=true;hiddenElements.clear();$('restore-elements').hidden=true;updateLayerUI();});
+  $('restore-layers').addEventListener('click',()=>{hiddenElements.clear();defaultLayers();$('restore-elements').hidden=true;updateLayerUI();});
   $('slice-enabled').addEventListener('change',()=>{if(walk)exitWalk(false);setSlice($('slice-enabled').checked);});
   $('slice').addEventListener('input',()=>{if(walk)exitWalk(false);setSlice(true,Number($('slice').value));if(activeView==='plan')viewUI();});
   $('home-button').addEventListener('click',()=>setView('overview'));
@@ -205,8 +251,8 @@ function events(){
   $('close-selection').addEventListener('click',()=>$('selection').hidden=true);
   $('focus-selection').addEventListener('click',focusSelected);
   $('hide-selection').addEventListener('click',()=>{if(!selected?.id)return;elementObjects.get(selected.id).visible=false;hiddenElements.add(selected.id);$('selection').hidden=true;$('restore-elements').hidden=false;updateLayerUI();toast('Элемент скрыт. «Сбросить» вернёт все элементы.');});
-  $('restore-elements').addEventListener('click',()=>{for(const id of hiddenElements)elementObjects.get(id).visible=true;hiddenElements.clear();$('restore-elements').hidden=true;updateLayerUI();});
-  for(const [button,dialog] of [['about-button','about-dialog'],['issues-button','issues-dialog']])$(button).addEventListener('click',()=>$(dialog).showModal());
+  $('restore-elements').addEventListener('click',()=>{hiddenElements.clear();applyVariant();$('restore-elements').hidden=true;updateLayerUI();});
+  $('about-button').addEventListener('click',()=>$('about-dialog').showModal());
   document.querySelectorAll('dialog').forEach(d=>{d.querySelector('.dialog-close').addEventListener('click',()=>d.close());d.addEventListener('click',event=>{if(event.target===d){const r=d.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)d.close();}});});
   $('fullscreen-button').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Полный экран недоступен в этом браузере.');}});
   $('png-button').addEventListener('click',()=>{
@@ -242,6 +288,8 @@ function events(){
 
 async function init(){
   data=await fetch('./model/canonical.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Данные модели недоступны');return r.json();});
+  activeVariant=variantById(data,new URLSearchParams(location.search).get('variant')).id;data.activeVariant=activeVariant;
+  $('revision').textContent=data.revision+' · '+data.date.split('-').reverse().join('.');
   for(const e of data.elements)metadata.set(e.id,e);
   renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.8));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.localClippingEnabled=true;
@@ -257,15 +305,13 @@ async function init(){
   model=gltf.scene;model.traverse(o=>{
     if(o.userData.layerId&&!o.userData.elementId)layers.set(o.userData.layerId,o);
     if(o.userData.elementId)elementObjects.set(o.userData.elementId,o);
-    if(o.isMesh){o.castShadow=!o.material.transparent;o.receiveShadow=true;}
+    if(o.isMesh){o.castShadow=!o.material.transparent&&!o.parent?.userData.elementId?.startsWith('lstk-');o.receiveShadow=true;}
   });
   if(layers.size!==data.layers.length||elementObjects.size!==data.elements.length)throw new Error('Состав GLB не совпадает с описанием модели');
   scene.add(model);
   $('about-content').innerHTML='<ul>'+data.limits.map(t=>'<li>'+escape(t)+'</li>').join('')+'</ul>';
-  $('issue-count').textContent=data.issues.length;
-  $('issues-content').innerHTML=data.issues.map(i=>`<article class="issue-item"><h3>${escape(i.title)}</h3><p>${escape(i.detail)}</p></article>`).join('');
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
-  layerPanel();roomPanel();events();
+  applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();

@@ -15,6 +15,16 @@ export function groundAt(x,z,data) {
 export function walkBlocked(x,z,data,radius=.19) {
   if(groundAt(x,z,data)===null)return true;
   for(const o of data.walk.obstacles) {
+    if(o.variant && o.variant!==(data.activeVariant || data.variants?.default || 'km'))continue;
+    if(o.points){
+      if(inPolygon(x,z,o.points))return true;
+      for(let i=0;i<o.points.length;i++){
+        const a=o.points[i],b=o.points[(i+1)%o.points.length],dx=b[0]-a[0],dz=b[1]-a[1];
+        const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));
+        if((x-a[0]-t*dx)**2+(z-a[1]-t*dz)**2<radius*radius)return true;
+      }
+      continue;
+    }
     const dx=x-o.center[0], dz=z-o.center[1], a=o.rotation || 0;
     const rx=dx*Math.cos(a)-dz*Math.sin(a), rz=dx*Math.sin(a)+dz*Math.cos(a);
     const nearX=Math.max(-o.size[0]/2,Math.min(o.size[0]/2,rx));

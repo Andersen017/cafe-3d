@@ -3,6 +3,7 @@ node_modules/
 .pnpm-store/
 *.dwg
 *.dxf
+*.sat
 *.pdf
 *.xlsx
 *.log
