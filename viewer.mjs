@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs';
-import {elementInVariant,variantById} from './scripts/variants.mjs';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R02-20261010';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R02-20261010';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
