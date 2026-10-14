@@ -54,12 +54,32 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
-check('R03 preserves all 806 source element geometries, room layout, TX catalogue and walk obstacles',()=>{
-  const source=data.elements.filter(e=>!e.id.startsWith('finish.r03.'));
+check('R03 preserves 805 valid source geometries, room layout and TX catalogue after removing the false corner opening',()=>{
+  const source=data.elements.filter(e=>!e.id.startsWith('finish.r03.')&&!e.id.startsWith('repair.r03.'));
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,806);
-  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'d2d5cc4a44c9f31a9931a08d6bae635b01c5d312442ffe354b8878fd2d0e3ab2');
-  assert.equal(hash([data.catalog,data.rooms,data.walk]),'e98da97fa207e6e065bbbcd145a6b2f15a9413b0cc23e652846ae17de9d7760b');
+  assert.equal(source.length,805);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'b3485df1a4e8e81d595ba08b9617c0f6105e3849bec1678925e4441347befd8f');
+  assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
+  assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
+});
+check('Axis 2 corner is closed in every wall layer and both assemblies; two small windows stay clear',()=>{
+  assert(!data.elements.some(e=>e.id==='ar.glazing-011'||e.id==='finish.r03.reveal.ar.glazing-011'));
+  assert.equal(data.elements.filter(e=>e.id.startsWith('repair.r03.')).length,6);
+  const covers=(e,y,z)=>{const g=e.geometry;return g.type==='box'&&Math.abs(y-g.center[1])<=g.size[1]/2+1e-9&&Math.abs(z-g.center[2])<=g.size[2]/2+1e-9;};
+  for(const v of ['lstk','km']){
+    const es=includedElements(data,v);
+    for(const layer of ['core','outer','inner']){
+      const walls=es.filter(e=>e.layer==='ar.walls.'+layer&&e.geometry.center[0]>10.5);
+      for(const z of [-.05,-.5,-.909,-1.4,-1.8])for(const y of [.2,.9,1.65,2.15,2.8,3,3.3])assert(walls.some(e=>covers(e,y,z)),`${v} ${layer} ${y} ${z}`);
+      for(const id of ['ar.glazing-012','ar.glazing-013']){
+        const window=es.find(e=>e.id===id);assert(window);assert(Math.abs(window.geometry.width-.6)<1e-9);assert(Math.abs(window.geometry.height-.55)<1e-9);
+        assert(!walls.some(e=>covers(e,window.geometry.center[1],window.geometry.center[2])));
+      }
+    }
+    const panel=es.find(e=>e.id===`finish.r03.${v}.right.corner-wall`);assert.equal(panel.material,'finish_stone');
+    assert.deepEqual(panel.geometry.size,[1.818,2.1,.02]);
+    assert(walkBlocked(10.6175,-.909,{...data,activeVariant:v}));
+  }
 });
 check('Selected facade design follows both assemblies; signs, displays and reveals are independent layers',()=>{
   for(const id of ['design.exterior','design.signage','design.displays','design.reveals'])assert(data.layers.some(l=>l.id===id&&l.defaultVisible));
@@ -72,8 +92,8 @@ check('Selected facade design follows both assemblies; signs, displays and revea
     }
   }
 });
-check('Window frames remain recessed; twenty exterior openings have reveals and conditional mounting dimensions',()=>{
-  const reveals=data.elements.filter(e=>e.geometry.type==='reveal');assert.equal(reveals.length,20);
+check('Window frames remain recessed; nineteen exterior openings have reveals and conditional mounting dimensions',()=>{
+  const reveals=data.elements.filter(e=>e.geometry.type==='reveal');assert.equal(reveals.length,19);
   for(const e of reveals){const g=e.geometry;assert(g.facadeFace-g.frameFace>.10);assert(g.facadeFace-g.frameFace<.105);
     for(const x of Object.values(g.facadeFaces))assert(x-g.frameFace>=.10&&x-g.frameFace<.115);
     const source=data.elements.find(a=>e.id==='finish.r03.reveal.'+a.id);assert(source);assert.deepEqual(g.center,source.geometry.center);

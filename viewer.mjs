@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R03-20261014';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R03-20261014';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R03-20261014-wall1';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R03-20261014-wall1';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -307,7 +307,7 @@ async function init(){
   const fill=new THREE.DirectionalLight('#dae8ef',1.1);fill.position.set(15,10,-15);scene.add(fill);
   perspective=new THREE.PerspectiveCamera(43,1,.04,200);orthographic=new THREE.OrthographicCamera(-10,10,10,-10,.04,200);camera=perspective;
   controls=new OrbitControls(camera,renderer.domElement);
-  const gltf=await new GLTFLoader().loadAsync('./assets/cafe.glb?v='+encodeURIComponent(data.revision+'-'+data.date),progress=>{if(progress.total)$('loading-progress').style.width=Math.round(progress.loaded/progress.total*100)+'%';});
+  const gltf=await new GLTFLoader().loadAsync('./assets/cafe.glb?v='+encodeURIComponent(data.build||(data.revision+'-'+data.date)),progress=>{if(progress.total)$('loading-progress').style.width=Math.round(progress.loaded/progress.total*100)+'%';});
   model=gltf.scene;model.traverse(o=>{
     if(o.userData.layerId&&!o.userData.elementId)layers.set(o.userData.layerId,o);
     if(o.userData.elementId)elementObjects.set(o.userData.elementId,o);

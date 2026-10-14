@@ -3935,32 +3935,6 @@
       "costKey": "envelope.km"
     },
     {
-      "id": "ar.glazing-011",
-      "name": "Остекление / right",
-      "layer": "ar.glazing",
-      "geometry": {
-        "type": "opening",
-        "center": [
-          10.592,
-          1.95,
-          -0.909
-        ],
-        "width": 1.818,
-        "height": 2.1,
-        "depth": 0.06,
-        "rotation": 1.5707963267948966
-      },
-      "material": "glass",
-      "status": "source",
-      "sources": [
-        "AR"
-      ],
-      "properties": {
-        "Низ / верх": "0.900 / 3.000 м",
-        "Основание": "Проёмы по фасадам АР"
-      }
-    },
-    {
       "id": "ar.walls.core-029",
       "name": "Подоконная часть / right",
       "layer": "ar.walls.core",
@@ -9900,7 +9874,7 @@
           0.4795709896103868
         ],
         "kind": "chair",
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       "material": "chair",
       "status": "schematic",
@@ -9962,7 +9936,7 @@
           0.4795709896103868
         ],
         "kind": "chair",
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       "material": "chair",
       "status": "schematic",
@@ -10334,7 +10308,7 @@
           0.4795709896103868
         ],
         "kind": "chair",
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       "material": "chair",
       "status": "schematic",
@@ -10396,7 +10370,7 @@
           0.4795709896103868
         ],
         "kind": "chair",
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       "material": "chair",
       "status": "schematic",
@@ -34407,43 +34381,6 @@
       "costKey": "finish.common.reveals"
     },
     {
-      "id": "finish.r03.reveal.ar.glazing-011",
-      "name": "Откосы / Остекление / right",
-      "layer": "design.reveals",
-      "geometry": {
-        "type": "reveal",
-        "center": [
-          10.592,
-          1.95,
-          -0.909
-        ],
-        "width": 1.818,
-        "height": 2.1,
-        "rotation": 1.5707963267948966,
-        "frameFace": 0.03,
-        "facadeFace": 0.1325000000000001,
-        "facadeFaces": {
-          "left": 0.1325000000000001,
-          "right": 0.1325000000000001,
-          "top": 0.1325000000000001
-        },
-        "sill": true
-      },
-      "material": "finish_reveal",
-      "status": "schematic",
-      "sources": [
-        "AR",
-        "LSTK",
-        "DESIGN_R04"
-      ],
-      "properties": {
-        "Привязка": "Плоскость рам R02 сохранена внутри конструктивного контура проёма",
-        "Заглубление до бежевой облицовки": "102.5 мм — по текущей условной оболочке",
-        "Монтаж": "Обрамление ЛСТК и фасадные откосы; состав стены и оконный узел требуют детализации"
-      },
-      "costKey": "finish.common.reveals"
-    },
-    {
       "id": "finish.r03.reveal.ar.glazing-012",
       "name": "Откосы / Остекление / right",
       "layer": "design.reveals",
@@ -34627,6 +34564,543 @@
         "Монтаж": "Обрамление ЛСТК и фасадные откосы; состав стены и оконный узел требуют детализации"
       },
       "costKey": "finish.common.reveals"
+    },
+    {
+      "id": "repair.r03.km.right.core",
+      "name": "Наружная стена / right",
+      "layer": "ar.walls.core",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.6175,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.16499999999999915,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "wall_core",
+      "status": "source",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Контур": "По граням в плане АР; общий архитектурный габарит 165 мм",
+        "Панель": "100 мм по штриховке АР / исходным данным КМ; детальный состав требует разработки"
+      },
+      "variant": "km",
+      "costKey": "envelope.km"
+    },
+    {
+      "id": "repair.r03.km.right.outer",
+      "name": "Наружная поверхность / right",
+      "layer": "ar.walls.outer",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.702,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.004000000000001336,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "white",
+      "status": "schematic",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Толщина": "Поверхность показана условным слоем 4 мм; состав отделки не задан"
+      },
+      "variant": "km",
+      "costKey": "envelope.km"
+    },
+    {
+      "id": "repair.r03.km.right.inner",
+      "name": "Внутренняя поверхность / right",
+      "layer": "ar.walls.inner",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.5335,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.0030000000000001137,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "plaster",
+      "status": "schematic",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Отделка": "Нейтральная; поверхность, а не назначенный материал"
+      },
+      "variant": "km",
+      "costKey": "envelope.km"
+    },
+    {
+      "id": "finish.r03.km.right.corner-wall",
+      "name": "Фасад / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.714500000000001,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          2.1,
+          0.02
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_stone",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "properties": {
+        "Отделка": "Бежевые фасадные панели",
+        "Размеры деталей": "Ритм ламелей, толщина облицовки и монтажные зазоры условные; габариты корпуса по модели"
+      },
+      "variant": "km",
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "finish.r03.km.right.corner-joint-1",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          1,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "km",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "finish.r03.km.right.corner-joint-1.5",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          1.5,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "km",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "finish.r03.km.right.corner-joint-2",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          2,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "km",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "finish.r03.km.right.corner-joint-2.5",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          2.5,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "km",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "finish.r03.km.right.corner-joint-3",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          3,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "km",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.km.exterior"
+    },
+    {
+      "id": "repair.r03.lstk.right.core",
+      "name": "Наружная стена / right",
+      "layer": "ar.walls.core",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.6175,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.16499999999999915,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "wall_core",
+      "status": "schematic",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Контур": "По граням в плане АР; общий архитектурный габарит 165 мм",
+        "Основание": "Планировка АР; верх по заводскому каркасу ЛСТК",
+        "Состав": "Контур ограждения показан условно; утепление и обшивки уточняются по смете"
+      },
+      "variant": "lstk",
+      "costKey": "envelope.lstk"
+    },
+    {
+      "id": "repair.r03.lstk.right.outer",
+      "name": "Наружная поверхность / right",
+      "layer": "ar.walls.outer",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.702,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.004000000000001336,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "white",
+      "status": "schematic",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Толщина": "Поверхность показана условным слоем 4 мм; состав отделки не задан",
+        "Основание": "Планировка АР; верх по заводскому каркасу ЛСТК",
+        "Состав": "Контур ограждения показан условно; утепление и обшивки уточняются по смете"
+      },
+      "variant": "lstk",
+      "costKey": "envelope.lstk"
+    },
+    {
+      "id": "repair.r03.lstk.right.inner",
+      "name": "Внутренняя поверхность / right",
+      "layer": "ar.walls.inner",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.5335,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          0.0030000000000001137,
+          2.1,
+          1.818
+        ]
+      },
+      "material": "plaster",
+      "status": "schematic",
+      "sources": [
+        "AR"
+      ],
+      "properties": {
+        "Отделка": "Нейтральная; поверхность, а не назначенный материал",
+        "Основание": "Планировка АР; верх по заводскому каркасу ЛСТК",
+        "Состав": "Контур ограждения показан условно; утепление и обшивки уточняются по смете"
+      },
+      "variant": "lstk",
+      "costKey": "envelope.lstk"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-wall",
+      "name": "Фасад / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.714500000000001,
+          1.95,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          2.1,
+          0.02
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_stone",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "properties": {
+        "Отделка": "Бежевые фасадные панели",
+        "Размеры деталей": "Ритм ламелей, толщина облицовки и монтажные зазоры условные; габариты корпуса по модели"
+      },
+      "variant": "lstk",
+      "costKey": "finish.lstk.exterior"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-joint-1",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          1,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "lstk",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.lstk.exterior"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-joint-1.5",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          1.5,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "lstk",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.lstk.exterior"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-joint-2",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          2,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "lstk",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.lstk.exterior"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-joint-2.5",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          2.5,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "lstk",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.lstk.exterior"
+    },
+    {
+      "id": "finish.r03.lstk.right.corner-joint-3",
+      "name": "Графитовое обрамление / right",
+      "layer": "design.exterior",
+      "geometry": {
+        "type": "box",
+        "center": [
+          10.727,
+          3,
+          -0.909
+        ],
+        "size": [
+          1.818,
+          0.005,
+          0.001
+        ],
+        "rotation": 1.5707963267948966
+      },
+      "material": "finish_joint",
+      "status": "schematic",
+      "sources": [
+        "AR",
+        "DESIGN_R04"
+      ],
+      "variant": "lstk",
+      "properties": {
+        "Размер": "Визуальное исполнение r04; профиль уточняется"
+      },
+      "costKey": "finish.lstk.exterior"
     }
   ],
   "walk": {
@@ -34931,13 +35405,13 @@
         ]
       },
       {
-        "id": "glass-right0",
+        "id": "wall-right-corner",
         "center": [
-          10.6,
+          10.6175,
           -0.909
         ],
         "size": [
-          0.08,
+          0.165,
           1.818
         ]
       },
@@ -36351,7 +36825,7 @@
           0.4399999827146531,
           0.4795709896103868
         ],
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       {
         "id": "tx-325161",
@@ -36375,7 +36849,7 @@
           0.4399999827146531,
           0.4795709896103868
         ],
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       {
         "id": "tx-3252C2",
@@ -36519,7 +36993,7 @@
           0.4399999827146531,
           0.4795709896103868
         ],
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       {
         "id": "tx-325435",
@@ -36543,7 +37017,7 @@
           0.4399999827146531,
           0.4795709896103868
         ],
-        "rotation": -7.0599276218564e-05
+        "rotation": -0.000070599276218564
       },
       {
         "id": "tx-325C35",
@@ -38236,7 +38710,7 @@
     "sourceFaces": 453185,
     "rawBounds": {
       "min": [
-        -1.5258789148e-06,
+        -0.0000015258789148,
         -2450.352764756009,
         -6.624787e-10
       ],
@@ -38257,5 +38731,6 @@
     },
     "triangles": 453185,
     "frameTop": 5.01
-  }
+  },
+  "build": "R03-20261014-wall1"
 }
