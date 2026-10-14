@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 const round = v => Math.round(v * 1e6) / 1e6;
 
@@ -37,9 +38,11 @@ export function buildModel(data,meshAssets=new Map()) {
       const p=data.materials[key] || data.materials.neutral;
       materials.set(id,new THREE.MeshStandardMaterial({
         color:p.color, roughness:p.roughness ?? .8, metalness:p.metalness ?? 0,
-        transparent:!!p.opacity, opacity:p.opacity ?? 1,
+        transparent:!!p.opacity, opacity:p.opacity ?? 1, vertexColors:!!p.vertexColors,
+        alphaTest:p.alphaTest || 0, emissive:p.emissive || '#000000', emissiveIntensity:p.emissiveIntensity ?? 1,
         side:THREE.DoubleSide, depthWrite:p.opacity ? false : true, ...overrides
       }));
+      materials.get(id).name=key;
     }
     return materials.get(id);
   }
@@ -48,6 +51,11 @@ export function buildModel(data,meshAssets=new Map()) {
     if(position) m.position.fromArray(position);
     if(rotation) m.rotation.fromArray(rotation);
     m.castShadow=key!=='glass'; m.receiveShadow=true; group.add(m); return m;
+  }
+  function surface(g,w,h,p,key,rotation=0){
+    const geom=new THREE.PlaneGeometry(w,h),uv=geom.attributes.uv;
+    for(let i=0;i<uv.count;i++)uv.setY(i,1-uv.getY(i));
+    return mesh(g,geom,key,p,[0,rotation,0]);
   }
   function box(g,s,p,key='neutral',rot=0) {
     return mesh(g,new THREE.BoxGeometry(...s),key,p,[0,rot,0]);
@@ -67,6 +75,42 @@ export function buildModel(data,meshAssets=new Map()) {
     layers.get(e.layer).add(g); elements.set(e.id,g);
     const s=e.geometry;
     if(s.type==='box') box(g,s.size,s.center,e.material,s.rotation || 0);
+    if(s.type==='surface')surface(g,s.width,s.height,s.center,e.material,s.rotation || 0);
+    if(s.type==='display'){
+      g.position.fromArray(s.center);g.rotation.y=s.rotation || 0;
+      box(g,[s.width+.048,s.height+.048,s.depth],[0,0,0],'finish_graphite');
+      surface(g,s.width,s.height,[0,0,s.depth/2+.0006],e.material);
+    }
+    if(s.type==='slatPanel'){
+      g.position.fromArray(s.center);g.rotation.y=s.rotation || 0;
+      const slope=s.slope || 0,half=s.width/2;
+      const backing=prismGeometry([[-half,-s.depth/2],[half,-s.depth/2],[half,-s.depth/2+.007],[-half,-s.depth/2+.007]],-s.height/2,s.height/2);
+      for(let i=0;i<backing.attributes.position.count;i++){const p=backing.attributes.position;p.setY(i,p.getY(i)+slope*p.getX(i));}backing.computeVertexNormals();
+      mesh(g,backing,'finish_backing');
+      const pieces=[];
+      for(let x=-half+.003,n=0;x<half-.002;x+=s.pitch,n++){
+        const width=Math.min(s.slatWidth,half-x-.002);if(width<.003)continue;
+        const geom=new THREE.BoxGeometry(width,s.height,s.depth-.007),pos=geom.attributes.position,uv=geom.attributes.uv;
+        const center=x+width/2;
+        for(let i=0;i<pos.count;i++){pos.setY(i,pos.getY(i)+slope*(pos.getX(i)+center));uv.setY(i,uv.getY(i)*s.height/1.3);}
+        geom.translate(center,0,.0035);geom.computeVertexNormals();
+        const tone=.88+((Math.imul(n+11,37)%19)/18)*.20,colors=new Float32Array(pos.count*3);colors.fill(tone);
+        geom.setAttribute('color',new THREE.BufferAttribute(colors,3));pieces.push(geom);
+      }
+      if(pieces.length)mesh(g,mergeGeometries(pieces),e.material);
+      for(const geom of pieces)geom.dispose();
+    }
+    if(s.type==='reveal'){
+      g.position.fromArray(s.center);g.rotation.y=s.rotation || 0;
+      const depth=s.facadeFace-s.frameFace,mid=(s.facadeFace+s.frameFace)/2,t=.012;
+      for(const side of [-1,1]){
+        const face=s.facadeFaces?.[side<0?'left':'right'] ?? s.facadeFace;
+        box(g,[t,s.height,face-s.frameFace],[side*(s.width/2+t/2),0,(face+s.frameFace)/2],e.material);
+      }
+      const head=s.facadeFaces?.top ?? s.facadeFace;
+      box(g,[s.width+2*t,t,head-s.frameFace],[0,s.height/2+t/2,(head+s.frameFace)/2],e.material);
+      if(s.sill)box(g,[s.width+.05,.018,depth+.026],[0,-s.height/2-.009,mid+.013],'finish_graphite');
+    }
     if(s.type==='prism') mesh(g,prismGeometry(s.points,s.bottom,s.top,s.slope,s.originZ),e.material);
     if(s.type==='beam') beam(g,s.a,s.b,s.width,s.depth,e.material);
     if(s.type==='indexedMesh') {
@@ -218,6 +262,10 @@ export function buildModel(data,meshAssets=new Map()) {
         if(h>2.4) box(g,[w,t,d],[0,.3,0],'frame');
       }
     }
+  }
+  for(const e of data.elements){
+    if(!e.finishMaterial)continue;
+    elements.get(e.id)?.traverse(o=>{if(o.isMesh)o.material=mat(e.finishMaterial);});
   }
   root.updateMatrixWorld(true);
   return {root,layers,elements};

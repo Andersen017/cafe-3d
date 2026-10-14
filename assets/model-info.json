@@ -1,15 +1,15 @@
 {
-  "revision": "R02",
-  "date": "2026-10-09",
-  "elements": 1252,
-  "layers": 27,
+  "revision": "R03",
+  "date": "2026-10-14",
+  "elements": 1082,
+  "layers": 30,
   "rooms": 10,
   "variants": [
     "lstk",
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 18837632,
+  "glbBytes": 21689924,
   "bounds": {
     "min": [
       -4,

@@ -10,6 +10,12 @@ import {includedElements,variantById} from './variants.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const json=await fs.readFile(path.join(root,'model/canonical.json'),'utf8');
 const data=JSON.parse(json);const passed=[];
+// Node verifies the complete GLB structure and PNG headers; actual pixel decoding/rendering is checked in the browser.
+globalThis.self ??= globalThis;
+globalThis.createImageBitmap ??= async blob=>{
+  const png=Buffer.from(await blob.arrayBuffer());assert.equal(png.readUInt32BE(0),0x89504e47);
+  return {width:png.readUInt32BE(16),height:png.readUInt32BE(20),close(){}};
+};
 function check(name,fn){fn();passed.push(name);}
 check('Public model contains no local paths, contacts or private source contents',()=>{
   assert(!/[A-Za-z]:[\\/]|@|\.dwg|\.pdf|\.xlsx|\.dxf/i.test(json));
@@ -47,6 +53,32 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   assert.deepEqual(c('equipment.D22').placedIds,['tx-32EE9F']);assert.equal(c('equipment.D12').quantity,2);assert.equal(c('equipment.D12').placedIds.length,1);
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
+});
+check('R03 preserves all 806 source element geometries, room layout, TX catalogue and walk obstacles',()=>{
+  const source=data.elements.filter(e=>!e.id.startsWith('finish.r03.'));
+  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  assert.equal(source.length,806);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'d2d5cc4a44c9f31a9931a08d6bae635b01c5d312442ffe354b8878fd2d0e3ab2');
+  assert.equal(hash([data.catalog,data.rooms,data.walk]),'e98da97fa207e6e065bbbcd145a6b2f15a9413b0cc23e652846ae17de9d7760b');
+});
+check('Selected facade design follows both assemblies; signs, displays and reveals are independent layers',()=>{
+  for(const id of ['design.exterior','design.signage','design.displays','design.reveals'])assert(data.layers.some(l=>l.id===id&&l.defaultVisible));
+  for(const v of ['lstk','km']){
+    const es=includedElements(data,v);assert.equal(es.filter(e=>e.layer==='design.signage').length,4);
+    assert.equal(es.filter(e=>e.layer==='design.displays').length,2);
+    for(const face of ['front','rear','left','right']){
+      const belt=es.find(e=>e.id===`finish.r03.${v}.${face}.belt`);assert(belt);assert.equal(belt.geometry.type,'slatPanel');
+      assert(Math.abs(belt.geometry.center[1]+belt.geometry.height/2-(v==='lstk'?5.01:4.90))<1e-8);
+    }
+  }
+});
+check('Window frames remain recessed; twenty exterior openings have reveals and conditional mounting dimensions',()=>{
+  const reveals=data.elements.filter(e=>e.geometry.type==='reveal');assert.equal(reveals.length,20);
+  for(const e of reveals){const g=e.geometry;assert(g.facadeFace-g.frameFace>.10);assert(g.facadeFace-g.frameFace<.105);
+    for(const x of Object.values(g.facadeFaces))assert(x-g.frameFace>=.10&&x-g.frameFace<.115);
+    const source=data.elements.find(a=>e.id==='finish.r03.reveal.'+a.id);assert(source);assert.deepEqual(g.center,source.geometry.center);
+    assert.equal(g.width,source.geometry.width);assert.equal(g.height,source.geometry.height);
+  }
 });
 check('Dining chair directions, exact table tops, counter corners and terrace circles',()=>{
   const chairs=data.elements.filter(e=>e.name==='Стул / ТХ'),tables=data.elements.filter(e=>e.name==='Обеденный стол');assert.equal(chairs.length,48);assert.equal(tables.length,11);
@@ -119,6 +151,18 @@ check('Primary roof and canopy covers clear the factory support surfaces',()=>{
 });
 const bytes=await fs.readFile(path.join(root,'assets/cafe.glb'));
 assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(4),2);assert.equal(bytes.readUInt32LE(8),bytes.length);
+const document=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString('utf8').trim());
+const binaryStart=20+bytes.readUInt32LE(12)+8;
+check('Five PNG textures are embedded byte-for-byte in GLB with UVs; no external image dependencies',()=>{
+  assert.equal(document.images.length,5);assert.equal(document.textures.length,5);
+  for(const image of document.images){assert.equal(image.mimeType,'image/png');assert(!image.uri);const v=document.bufferViews[image.bufferView];
+    assert(v.byteOffset+v.byteLength<=document.buffers[0].byteLength);const png=bytes.subarray(binaryStart+v.byteOffset,binaryStart+v.byteOffset+v.byteLength);
+    assert.equal(png.readUInt32BE(0),0x89504e47);assert(png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0);
+  }
+  for(const mesh of document.meshes)for(const p of mesh.primitives){if(document.materials[p.material]?.pbrMetallicRoughness?.baseColorTexture)assert(p.attributes.TEXCOORD_0!==undefined);}
+});
+for(const image of document.images){const v=document.bufferViews[image.bufferView];const embedded=bytes.subarray(binaryStart+v.byteOffset,binaryStart+v.byteOffset+v.byteLength);
+  assert.deepEqual(embedded,await fs.readFile(path.join(root,'assets/textures',image.name)));}
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 check('Exported GLB independently loads with all layers and element IDs',()=>{
   const layerIds=new Set(),ids=new Set();let meshes=0;

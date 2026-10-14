@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R02-20261010';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R02-20261010';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R03-20261014';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R03-20261014';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=n=>n.toLocaleString('ru-RU',{maximumFractionDigits:2,minimumFractionDigits:2});
 let data,renderer,scene,perspective,orthographic,camera,controls,model;
 const layers=new Map(),elementObjects=new Map(),metadata=new Map(),hiddenElements=new Set();
+const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
@@ -54,6 +55,11 @@ function catalogPanel(){
 }
 function updateLayerUI(){
   if(!data)return;
+  const finished=!!layers.get('design.exterior')?.visible;
+  for(const paint of finishPaints){
+    const p=data.materials[finished?paint.finish:paint.source];
+    paint.material.color.set(p.color);paint.material.roughness=p.roughness??.8;paint.material.metalness=p.metalness??0;
+  }
   for(const input of document.querySelectorAll('input[data-layer]'))input.checked=!!layers.get(input.dataset.layer)?.visible;
   for(const input of document.querySelectorAll('input[data-group]')){
     const group=data.layers.filter(l=>l.group===input.dataset.group && (!l.variant || l.variant===activeVariant));
@@ -80,7 +86,7 @@ function layerPanel(){
   const grouped=new Map();
   for(const l of data.layers){if(!grouped.has(l.group))grouped.set(l.group,[]);grouped.get(l.group).push(l);}
   for(const [name,items] of grouped){
-    const details=document.createElement('details');details.className='layer-group';details.open=['Архитектура','Технология','Инженерные разделы'].includes(name);
+    const details=document.createElement('details');details.className='layer-group';details.open=['Архитектура','Отделка','Технология','Инженерные разделы'].includes(name);
     const summary=document.createElement('summary');
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.dataset.group=name;checkbox.setAttribute('aria-label',name+': все слои');
     checkbox.addEventListener('click',event=>event.stopPropagation());
@@ -135,7 +141,7 @@ function setView(view){
   if(walk)exitWalk(false);
   activeView=view;defaultLayers();
   if(view==='overview'){
-    setSlice(false);cameraView([22,17,20],[5.3,1.4,-7]);
+    setSlice(false);cameraView([-17,12.5,15],[4.8,1.8,-5]);
   }else if(view==='plan'){
     setSlice(true,1.6);cameraView([5.3,28,-7.08],[5.3,0,-7.08],true);
   }else if(view==='interior'){
@@ -145,7 +151,7 @@ function setView(view){
     for(const l of data.layers)layers.get(l.id).visible=[...variantById(data,activeVariant).frameLayers,'ar.floors','env.site'].includes(l.id);
     setSlice(false);cameraView([21,16,17],[5.3,2,-5.3]);
   }else if(view==='engineering'){
-    for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling','ar.canopy','ar.walls.outer','ar.walls.inner','design.exterior'])layers.get(id).visible=false;
+    for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling','ar.canopy','ar.walls.outer','ar.walls.inner','design.exterior','design.signage','design.displays','design.reveals'])layers.get(id).visible=false;
     for(const id of ['em.points','vk.water','vk.sewage'])layers.get(id).visible=true;
     setSlice(true,2.7);cameraView([17,15,7],[5.3,1,-5.3]);
   }
@@ -308,6 +314,9 @@ async function init(){
     if(o.isMesh){o.castShadow=!o.material.transparent&&!o.parent?.userData.elementId?.startsWith('lstk-');o.receiveShadow=true;}
   });
   if(layers.size!==data.layers.length||elementObjects.size!==data.elements.length)throw new Error('Состав GLB не совпадает с описанием модели');
+  for(const e of data.elements.filter(e=>e.finishMaterial))elementObjects.get(e.id).traverse(o=>{
+    if(o.isMesh){o.material=o.material.clone();finishPaints.push({material:o.material,source:e.material,finish:e.finishMaterial});}
+  });
   scene.add(model);
   $('about-content').innerHTML='<ul>'+data.limits.map(t=>'<li>'+escape(t)+'</li>').join('')+'</ul>';
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}

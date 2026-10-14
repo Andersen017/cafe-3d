@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
 import {buildModel,modelBounds} from './scene.mjs';
+import {embedTextures} from './embed-textures.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const data=JSON.parse(await fs.readFile(path.join(root,'model/canonical.json'),'utf8'));
@@ -15,7 +16,8 @@ for(const asset of new Set(data.elements.filter(e=>e.geometry.type==='indexedMes
   const b=await fs.readFile(path.join(root,asset));meshAssets.set(asset,b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));
 }
 const {root:scene}=buildModel(data,meshAssets);
-const glb=await new GLTFExporter().parseAsync(scene,{binary:true,onlyVisible:false,trs:true});
+const rawGlb=await new GLTFExporter().parseAsync(scene,{binary:true,onlyVisible:false,trs:true});
+const glb=await embedTextures(rawGlb,data,root);
 await fs.mkdir(path.join(root,'assets'),{recursive:true});
 await fs.writeFile(path.join(root,'assets/cafe.glb'),Buffer.from(glb));
 
