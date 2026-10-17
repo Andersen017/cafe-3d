@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R08-20261017';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R08-20261017';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R09-20261017';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R09-20261017';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +12,7 @@ const layers=new Map(),elementObjects=new Map(),metadata=new Map(),hiddenElement
 const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
-let environmentMode='day',environmentLights,facadeFixtures=[],lastLightUpdate=0;
+let environmentMode='evening',environmentLights,facadeFixtures=[],lastLightUpdate=0;
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
 const keys=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 raycaster.params.Line.threshold=.04;
@@ -107,7 +107,12 @@ function setEnvironment(mode){
   if(environmentLights){environmentLights.hemi.intensity=night?.42:2.7;environmentLights.sun.intensity=night?.10:3.1;environmentLights.fill.intensity=night?.24:1.1;}
   scene.background.set(night?'#182331':'#e4e6de');renderer.toneMappingExposure=night?1.22:1.18;
   model.traverse(o=>{if(o.isMesh&&o.material?.name==='fixture_emitter')o.material.emissiveIntensity=night?3.0:.06;});
-  document.body.dataset.environment=environmentMode;$('environment-mode').value=environmentMode;refreshFacadeLights();
+  document.body.dataset.environment=environmentMode;
+  const toggle=$('environment-mode');
+  toggle.textContent=night?'☀ День':'☾ Вечер';
+  toggle.setAttribute('aria-label',night?'Включить дневной режим':'Включить вечерний режим');
+  toggle.title=night?'Сейчас вечер. Переключить на день':'Сейчас день. Переключить на вечер';
+  refreshFacadeLights();
 }
 function setSlice(enabled,height=sliceHeight){
   sliceActive=enabled;sliceHeight=height;clipPlane.constant=height;
@@ -362,8 +367,8 @@ async function init(){
   $('about-content').innerHTML='<ul>'+data.limits.map(t=>'<li>'+escape(t)+'</li>').join('')+'</ul>';
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
   applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
-  $('environment-mode').addEventListener('change',e=>setEnvironment(e.target.value));
-  setEnvironment(new URLSearchParams(location.search).get('light'));
+  $('environment-mode').addEventListener('click',()=>setEnvironment(environmentMode==='evening'?'day':'evening'));
+  setEnvironment(new URLSearchParams(location.search).get('light')==='day'?'day':'evening');
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['site','plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();

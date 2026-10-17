@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "title": "Кафе / проект в 3D",
-  "revision": "R08",
+  "revision": "R09",
   "date": "2026-10-17",
   "units": "m",
   "upAxis": "Y",
@@ -50598,7 +50598,7 @@
       "sourceBinaryUnchanged": true
     }
   },
-  "build": "R08-20261017",
+  "build": "R09-20261017",
   "context": {
     "style": "blueprint",
     "placement": "original-cmm-axes",
