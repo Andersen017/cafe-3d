@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {openPlanarPanels} from './panel-opening.mjs';
+import {subtractVisualBox} from './visual-opening.mjs';
 
 const round = v => Math.round(v * 1e6) / 1e6;
 
@@ -81,6 +82,18 @@ export function buildModel(data,meshAssets=new Map()) {
       g.position.fromArray(s.center);g.rotation.y=s.rotation || 0;
       box(g,[s.width+.048,s.height+.048,s.depth],[0,0,0],'finish_graphite');
       surface(g,s.width,s.height,[0,0,s.depth/2+.0006],e.material);
+    }
+    if(s.type==='upDownLight'){
+      g.position.fromArray(s.center);g.rotation.y=s.rotation||0;
+      box(g,[.14,.24,.10],[0,0,0],'fixture_body');
+      for(const sign of [-1,1]){
+        const emitter=box(g,[.105,.008,.065],[0,sign*.124,.01],'fixture_emitter');emitter.castShadow=false;emitter.userData.fixtureEmitter=true;
+        const light=new THREE.SpotLight('#ffb46b',s.intensity??65,3.8,Math.PI/7,.45,2);
+        light.position.set(0,sign*.132,.025);light.target.position.set(0,sign*1.7,-.075);
+        light.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),light.target.position.clone().sub(light.position).normalize());
+        light.target.position.set(0,0,-1);light.add(light.target);
+        light.userData={facadeLight:true,nominalIntensity:s.intensity??65};g.add(light);
+      }
     }
     if(s.type==='slatPanel'){
       g.position.fromArray(s.center);g.rotation.y=s.rotation || 0;
@@ -263,6 +276,16 @@ export function buildModel(data,meshAssets=new Map()) {
         for(let n=1;n<count;n++)box(g,[t,h,d],[-w/2+w*n/count,0,0],'frame');
         if(h>2.4) box(g,[w,t,d],[0,.3,0],'frame');
       }
+    }
+    if(s.visualOpening){
+      g.traverse(o=>{if(!o.isMesh)return;o.updateMatrix();
+        const src=o.geometry.clone().applyMatrix4(o.matrix),p=src.attributes.position.array;
+        const ix=src.index?.array||Uint32Array.from({length:p.length/3},(_,i)=>i);
+        const cut=subtractVisualBox(p,ix,s.visualOpening),geom=new THREE.BufferGeometry();
+        geom.setAttribute('position',new THREE.BufferAttribute(cut.positions,3));geom.setIndex(new THREE.BufferAttribute(cut.indices,1));geom.computeVertexNormals();geom.computeBoundingBox();
+        const normal=geom.attributes.normal;for(let i=0;i<normal.count;i++)if(Math.hypot(normal.getX(i),normal.getY(i),normal.getZ(i))<.5)normal.setXYZ(i,0,1,0);
+        o.geometry=geom;o.position.set(0,0,0);o.quaternion.identity();o.scale.set(1,1,1);src.dispose();
+      });
     }
   }
   for(const e of data.elements){

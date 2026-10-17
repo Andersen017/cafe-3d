@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R04-20261017';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R04-20261017';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R05-20261017';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R05-20261017';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,6 +12,7 @@ const layers=new Map(),elementObjects=new Map(),metadata=new Map(),hiddenElement
 const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
+let environmentMode='day',environmentLights,facadeFixtures=[],lastLightUpdate=0;
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
 const keys=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const clipPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),sliceHeight);
@@ -55,6 +56,7 @@ function catalogPanel(){
 }
 function updateLayerUI(){
   if(!data)return;
+  syncCoordination();refreshFacadeLights();
   const finished=!!layers.get('design.exterior')?.visible;
   for(const paint of finishPaints){
     const p=data.materials[finished?paint.finish:paint.source];
@@ -74,6 +76,37 @@ function updateLayerUI(){
   for(const [i,id] of ['em.points','vk.water','vk.sewage'].entries())$('engineering-legend').children[i].hidden=!layers.get(id)?.visible;
   const count=data.elements.filter(e=>elementInVariant(e,activeVariant)&&layers.get(e.layer)?.visible&&!hiddenElements.has(e.id)).length;
   $('visible-count').textContent=count+' элементов на экране';
+}
+function syncCoordination(){
+  const enabled=!!layers.get('coordination.window')?.visible;
+  for(const e of data.elements.filter(e=>e.replaces)){
+    const source=metadata.get(e.replaces),o=elementObjects.get(e.replaces);
+    if(o)o.visible=elementInVariant(source,activeVariant)&&!hiddenElements.has(source.id)&&!enabled;
+  }
+  for(const e of data.elements.filter(e=>e.followsLayer)){
+    const o=elementObjects.get(e.id);if(o)o.visible=elementInVariant(e,activeVariant)&&!!layers.get(e.followsLayer)?.visible&&!hiddenElements.has(e.id)&&(!e.replaces||!hiddenElements.has(e.replaces));
+  }
+  const note=$('coordination-notice');if(note)note.textContent=enabled?'Каркас у окна — временная увязка · ожидается Direct Invest':'Исходный каркас · показаны пересечения с окном по АГО';
+}
+function refreshFacadeLights(){
+  if(!camera)return;
+  const enabled=environmentMode==='evening'&&!!layers.get('em.lighting')?.visible;
+  for(const f of facadeFixtures)f.object.traverse(o=>{if(o.isSpotLight)o.visible=false;});
+  if(!enabled)return;
+  const cp=camera.position;
+  const ranked=facadeFixtures.filter(f=>f.object.visible).map(f=>{
+    const p=new THREE.Vector3().setFromMatrixPosition(f.object.matrixWorld),n=new THREE.Vector3(0,0,1).applyQuaternion(f.object.quaternion);
+    const toward=cp.clone().sub(p);return {f,score:toward.lengthSq()+(n.dot(toward.normalize())<0?10000:0)};
+  }).sort((a,b)=>a.score-b.score);
+  // Keep sixteen directional lights active for predictable desktop/mobile rendering.
+  for(const {f} of ranked.slice(0,8))f.object.traverse(o=>{if(o.isSpotLight){o.visible=true;o.intensity=f.intensity;}});
+}
+function setEnvironment(mode){
+  environmentMode=mode==='evening'?'evening':'day';const night=environmentMode==='evening';
+  if(environmentLights){environmentLights.hemi.intensity=night?.42:2.7;environmentLights.sun.intensity=night?.10:3.1;environmentLights.fill.intensity=night?.24:1.1;}
+  scene.background.set(night?'#182331':'#e4e6de');renderer.toneMappingExposure=night?1.22:1.18;
+  model.traverse(o=>{if(o.isMesh&&o.material?.name==='fixture_emitter')o.material.emissiveIntensity=night?3.0:.06;});
+  document.body.dataset.environment=environmentMode;$('environment-mode').value=environmentMode;refreshFacadeLights();
 }
 function setSlice(enabled,height=sliceHeight){
   sliceActive=enabled;sliceHeight=height;clipPlane.constant=height;
@@ -148,10 +181,10 @@ function setView(view){
     for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling'])layers.get(id).visible=false;
     setSlice(true,2.65);cameraView([17,12,7],[5.3,1,-5.3]);
   }else if(view==='frame'){
-    for(const l of data.layers)layers.get(l.id).visible=[...variantById(data,activeVariant).frameLayers,'ar.floors','env.site'].includes(l.id);
+    for(const l of data.layers)layers.get(l.id).visible=[...variantById(data,activeVariant).frameLayers,'coordination.window','ar.floors','env.site'].includes(l.id);
     setSlice(false);cameraView([21,16,17],[5.3,2,-5.3]);
   }else if(view==='engineering'){
-    for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling','ar.canopy','ar.walls.outer','ar.walls.inner','design.exterior','design.signage','design.displays','design.reveals'])layers.get(id).visible=false;
+    for(const id of ['ar.roof.core','ar.roof.inner','ar.roof.outer','ar.ceiling','ar.canopy','ar.walls.outer','ar.walls.inner','design.exterior','design.signage','design.displays','design.reveals','design.soffit','em.lighting'])layers.get(id).visible=false;
     for(const id of ['em.points','vk.water','vk.sewage'])layers.get(id).visible=true;
     setSlice(true,2.7);cameraView([17,15,7],[5.3,1,-5.3]);
   }
@@ -302,29 +335,33 @@ async function init(){
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
   $('canvas-host').append(renderer.domElement);renderer.domElement.setAttribute('aria-label','3D-вид здания кафе');renderer.domElement.tabIndex=0;
   scene=new THREE.Scene();scene.background=new THREE.Color('#e4e6de');
-  scene.add(new THREE.HemisphereLight('#fff8e8','#c1cebd',2.7));
+  const hemi=new THREE.HemisphereLight('#fff8e8','#c1cebd',2.7);scene.add(hemi);
   const sun=new THREE.DirectionalLight('#fff5e2',3.1);sun.position.set(-9,19,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;sun.shadow.normalBias=.035;sun.shadow.camera.left=-20;sun.shadow.camera.right=20;sun.shadow.camera.top=20;sun.shadow.camera.bottom=-20;sun.shadow.camera.far=60;sun.target.position.set(5,0,-6);scene.add(sun,sun.target);
   const fill=new THREE.DirectionalLight('#dae8ef',1.1);fill.position.set(15,10,-15);scene.add(fill);
+  environmentLights={hemi,sun,fill};
   perspective=new THREE.PerspectiveCamera(43,1,.04,200);orthographic=new THREE.OrthographicCamera(-10,10,10,-10,.04,200);camera=perspective;
   controls=new OrbitControls(camera,renderer.domElement);
   const gltf=await new GLTFLoader().loadAsync('./assets/cafe.glb?v='+encodeURIComponent(data.build||(data.revision+'-'+data.date)),progress=>{if(progress.total)$('loading-progress').style.width=Math.round(progress.loaded/progress.total*100)+'%';});
   model=gltf.scene;model.traverse(o=>{
     if(o.userData.layerId&&!o.userData.elementId)layers.set(o.userData.layerId,o);
     if(o.userData.elementId)elementObjects.set(o.userData.elementId,o);
-    if(o.isMesh){o.castShadow=!o.material.transparent&&!o.parent?.userData.elementId?.startsWith('lstk-');o.receiveShadow=true;}
+    if(o.isMesh){o.castShadow=!o.material.transparent&&metadata.get(o.parent?.userData.elementId)?.geometry.type!=='indexedMesh';o.receiveShadow=true;}
   });
   if(layers.size!==data.layers.length||elementObjects.size!==data.elements.length)throw new Error('Состав GLB не совпадает с описанием модели');
   for(const e of data.elements.filter(e=>e.finishMaterial))elementObjects.get(e.id).traverse(o=>{
     if(o.isMesh){o.material=o.material.clone();finishPaints.push({material:o.material,source:e.material,finish:e.finishMaterial});}
   });
   scene.add(model);
+  facadeFixtures=data.elements.filter(e=>e.geometry.type==='upDownLight').map(e=>({object:elementObjects.get(e.id),intensity:e.geometry.intensity}));
   $('about-content').innerHTML='<ul>'+data.limits.map(t=>'<li>'+escape(t)+'</li>').join('')+'</ul>';
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
   applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
+  $('environment-mode').addEventListener('change',e=>setEnvironment(e.target.value));
+  setEnvironment(new URLSearchParams(location.search).get('light'));
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();
-  renderer.setAnimationLoop(time=>{const dt=Math.min((time-last)/1000,.05);last=time;if(walk)updateWalk(dt);else controls.update();renderer.render(scene,camera);updateLabels();});
+  renderer.setAnimationLoop(time=>{const dt=Math.min((time-last)/1000,.05);last=time;if(walk)updateWalk(dt);else controls.update();if(time-lastLightUpdate>200){refreshFacadeLights();lastLightUpdate=time;}renderer.render(scene,camera);updateLabels();});
 }
 init().catch(error=>{
   console.error(error);$('loading-status').textContent='Не удалось открыть 3D: '+error.message+'. Скачайте GLB через «О модели» или откройте страницу в браузере с WebGL.';
