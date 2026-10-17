@@ -54,11 +54,14 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
-check('R03 preserves 805 valid source geometries, room layout and TX catalogue after removing the false corner opening',()=>{
-  const source=data.elements.filter(e=>!e.id.startsWith('finish.r03.')&&!e.id.startsWith('repair.r03.'));
+check('R04 preserves 1081 unaffected R03 geometries, room layout, TX catalogue and walk obstacles',()=>{
+  const changed=new Set(['lstk-walls',...['core','outer','inner'].flatMap(l=>[`ar.walls.${l}-005`,`ar.walls.${l}-005-lstk`]),
+    ...['lstk','km'].flatMap(v=>[`finish.r03.${v}.front.panel-5`,`finish.r03.${v}.front.joint-5-2`,...['front','left','right'].map(f=>`finish.r03.${v}.canopy.${f}`)])]);
+  assert.equal(changed.size,17);for(const id of changed)assert(data.elements.some(e=>e.id===id));
+  const source=data.elements.filter(e=>!changed.has(e.id)&&!/-r04-\d+$/.test(e.id)&&!e.id.startsWith('finish.r04.')&&!['ar.glazing-016','ar.glazing-017'].includes(e.id));
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,805);
-  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'b3485df1a4e8e81d595ba08b9617c0f6105e3849bec1678925e4441347befd8f');
+  assert.equal(source.length,1081);assert.equal(data.elements.length,1130);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'da4019551f048e5305dc87b2216b315c421543856184e27a6e97dd9f271449f6');
   assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
   assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
 });
@@ -92,11 +95,12 @@ check('Selected facade design follows both assemblies; signs, displays and revea
     }
   }
 });
-check('Window frames remain recessed; nineteen exterior openings have reveals and conditional mounting dimensions',()=>{
-  const reveals=data.elements.filter(e=>e.geometry.type==='reveal');assert.equal(reveals.length,19);
+check('Window frames remain recessed; twenty openings in each assembly have reveals and conditional mounting dimensions',()=>{
+  const reveals=data.elements.filter(e=>e.geometry.type==='reveal');assert.equal(reveals.length,21);
+  for(const v of ['lstk','km'])assert.equal(includedElements(data,v).filter(e=>e.geometry.type==='reveal').length,20);
   for(const e of reveals){const g=e.geometry;assert(g.facadeFace-g.frameFace>.10);assert(g.facadeFace-g.frameFace<.105);
     for(const x of Object.values(g.facadeFaces))assert(x-g.frameFace>=.10&&x-g.frameFace<.115);
-    const source=data.elements.find(a=>e.id==='finish.r03.reveal.'+a.id);assert(source);assert.deepEqual(g.center,source.geometry.center);
+    const source=data.elements.find(a=>e.id.endsWith('.reveal.'+a.id));assert(source);assert.deepEqual(g.center,source.geometry.center);
     assert.equal(g.width,source.geometry.width);assert.equal(g.height,source.geometry.height);
   }
 });
@@ -149,9 +153,10 @@ for(const variant of ['lstk','km'])check(`${variant}: every room and both terrac
 });
 
 const meshBytes=await fs.readFile(path.join(root,'model/lstk-mesh.bin'));
+assert.equal(createHash('sha256').update(meshBytes).digest('hex'),'e4767a9a6fb1d87218501800a5e7e086384c581dca8c5a09dbe6764e0961a81c');
 const asset=meshBytes.buffer.slice(meshBytes.byteOffset,meshBytes.byteOffset+meshBytes.byteLength);
 const frame=data.elements.filter(e=>e.geometry.type==='indexedMesh'),positions=new Map();
-check('All 453185 factory faces retained with the 1:1 coordinate transform',()=>{
+check('Original binary retains all 453185 factory faces and the 1:1 coordinate transform',()=>{
   assert.equal(data.geometryProvenance.sourceFaces,453185);assert.equal(frame.length,3);
   assert.deepEqual(data.geometryProvenance.transform,{scale:.001,translationMm:[-100,-100,0],mapping:'X=x,Y=z,Z=-y'});
   let count=0;const low=[Infinity,Infinity,Infinity],high=low.map(x=>-x);
@@ -190,9 +195,62 @@ check('Exported GLB independently loads with all layers and element IDs',()=>{
   assert.equal(layerIds.size,data.layers.length);assert.equal(ids.size,data.elements.length);assert(meshes>data.elements.length);
   const b=new THREE.Box3().setFromObject(gltf.scene);assert(Math.abs(b.max.y-5.05)<1e-5);assert(b.min.z<=-19.99);
 });
-check('Independent GLB load agrees with binary LSTK positions and triangle counts',()=>{
-  for(const e of frame){const o=gltf.scene.getObjectByName(e.id);assert(o);const m=o.children.find(o=>o.isMesh);assert(m);const p=m.geometry.attributes.position.array,src=positions.get(e.id);assert.equal(p.length,src.length);assert.equal(m.geometry.index.count,e.geometry.indexCount);
-    const hash=a=>createHash('sha256').update(Buffer.from(a.buffer,a.byteOffset,a.byteLength)).digest('hex');assert.equal(hash(p),hash(src));}
+check('GLB keeps every factory profile and only opens the four designated flat infill triangles',()=>{
+  const hash=a=>createHash('sha256').update(Buffer.from(a.buffer,a.byteOffset,a.byteLength)).digest('hex');
+  for(const e of frame){const o=gltf.scene.getObjectByName(e.id);assert(o);const m=o.children.find(o=>o.isMesh);assert(m);const p=m.geometry.attributes.position.array,src=positions.get(e.id),g=e.geometry,ix=m.geometry.index.array;
+    const original=new Uint32Array(asset,g.indexByteOffset,g.indexCount);
+    assert.equal(hash(p.subarray(0,src.length)),hash(src));
+    if(!g.panelOpenings){assert.equal(p.length,src.length);assert.equal(ix.length,original.length);assert.equal(hash(ix),hash(original));continue;}
+    assert.equal(e.id,'lstk-walls');assert.deepEqual(g.panelOpenings.flatMap(c=>c.faces),[127666,127667,127668,127669]);
+    assert.equal(p.length,src.length+96);assert.equal(ix.length,original.length+36);
+    const removed=new Set(g.panelOpenings.flatMap(c=>c.faces));let n=0;
+    for(let f=0;f<original.length/3;f++)if(!removed.has(f))for(let k=0;k<3;k++)assert.equal(ix[n++],original[f*3+k]);
+    let area=0;const [a,b,c,d]=g.panelOpenings[0].opening;
+    for(let k=n;k<ix.length;k+=3){const ps=[0,1,2].map(t=>Array.from(p.subarray(ix[k+t]*3,ix[k+t]*3+3)));for(const pt of ps)assert([0,.1].some(z=>Math.abs(pt[2]-z)<1e-7));
+      const minX=Math.min(...ps.map(t=>t[0])),maxX=Math.max(...ps.map(t=>t[0])),minY=Math.min(...ps.map(t=>t[1])),maxY=Math.max(...ps.map(t=>t[1]));
+      assert(maxX<=a+1e-6||minX>=c-1e-6||maxY<=b+1e-6||minY>=d-1e-6,'infill crosses the new window');
+      area+=Math.abs((ps[1][0]-ps[0][0])*(ps[2][1]-ps[0][1])-(ps[1][1]-ps[0][1])*(ps[2][0]-ps[0][0]))/2;
+    }
+    assert(Math.abs(area-2*((6.165-3.185)*3.88-.6*.55))<1e-5);
+  }
+});
+check('New window has frame top +2.150 and glass top +2.100, coordinated with the selected assembly',()=>{
+  for(const v of ['km','lstk']){
+    const es=includedElements(data,v);
+    const e=es.find(e=>['ar.glazing-016','ar.glazing-017'].includes(e.id));assert(e);const g=e.geometry;assert.equal(g.frameWidth,.05);assert.equal(e.variant,v);
+    assert.equal(g.center[0],v==='lstk'?5.255:5.4);
+    let o;gltf.scene.traverse(a=>{if(a.userData.elementId===e.id)o=a;});assert(o);
+    const glass=o.children.find(o=>o.isMesh&&o.material.name==='glass');assert(glass);
+    const glassBounds=new THREE.Box3().setFromObject(glass),bounds=new THREE.Box3().setFromObject(o);
+    assert(Math.abs(bounds.max.y-2.15)<1e-6);assert(Math.abs(bounds.min.y-1.6)<1e-6);assert(Math.abs(glassBounds.max.y-2.1)<1e-6);
+    for(const layer of ['ar.walls.core','ar.walls.outer','ar.walls.inner','design.exterior']){
+      for(const x of [g.center[0]-.25,g.center[0],g.center[0]+.25])for(const y of [1.651,1.875,2.099]){
+        assert(!es.some(e=>{const a=e.geometry;if(e.layer!==layer||a.type!=='box'||(a.rotation||0)!==0||Math.abs(a.center[2])>.2)return false;
+          return Math.abs(x-a.center[0])<a.size[0]/2-1e-6&&Math.abs(y-a.center[1])<a.size[1]/2-1e-6;}),`${v} ${layer} fills the opening`);
+      }
+    }
+  }
+});
+check('Existing LSTK profiles and KM braces do not cross the relocated glazing',()=>{
+  const ray=new THREE.Raycaster();ray.near=0;ray.far=.35;
+  for(const v of ['lstk','km']){
+    const es=includedElements(data,v),window=es.find(e=>['ar.glazing-016','ar.glazing-017'].includes(e.id));
+    const frameIds=new Set(es.filter(e=>v==='lstk'?e.id==='lstk-walls':e.layer==='km.reference').map(e=>e.id));
+    const frame=[];gltf.scene.traverse(o=>{if(frameIds.has(o.userData.elementId))frame.push(o);});assert(frame.length);
+    for(const x of [-.24,0,.24])for(const y of [1.66,1.875,2.09]){
+      ray.set(new THREE.Vector3(window.geometry.center[0]+x,y,.2),new THREE.Vector3(0,0,-1));
+      assert.equal(ray.intersectObjects(frame,true).length,0,`${v}: structural element crosses clear glazing at ${x},${y}`);
+    }
+  }
+});
+check('Canopy fascia closes above structural edges, caps are continuous and source roof geometry is preserved',()=>{
+  for(const v of ['km','lstk']){
+    const top=v==='lstk'?3.97:3.82;
+    for(const face of ['front','left','right']){const g=data.elements.find(e=>e.id===`finish.r03.${v}.canopy.${face}`).geometry;
+      assert.equal(g.slope,0);assert(Math.abs(g.center[1]+g.height/2-top)<1e-8);assert(Math.abs(g.center[1]-g.height/2-3.3)<1e-8);}
+    const cap=data.elements.find(e=>e.id===`finish.r04.${v}.canopy.cap`).geometry;assert.equal(cap.points.length,8);assert.equal(cap.bottom,top);
+  }
+  const frameTop=data.elements.find(e=>e.id==='lstk-canopy').geometry.bounds.max[1];assert(3.97-frameTop>.019);
 });
 const stats={result:'PASS',checks:passed,glbBytes:bytes.length,revision:data.revision};
 await fs.mkdir(path.join(root,'.work'),{recursive:true});await fs.writeFile(path.join(root,'.work/validation.json'),JSON.stringify(stats,null,2));

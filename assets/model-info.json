@@ -1,7 +1,7 @@
 {
-  "revision": "R03",
-  "date": "2026-10-14",
-  "elements": 1098,
+  "revision": "R04",
+  "date": "2026-10-17",
+  "elements": 1130,
   "layers": 30,
   "rooms": 10,
   "variants": [
@@ -9,7 +9,7 @@
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 21709256,
+  "glbBytes": 21802620,
   "bounds": {
     "min": [
       -4,

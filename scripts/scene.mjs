@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {openPlanarPanels} from './panel-opening.mjs';
 
 const round = v => Math.round(v * 1e6) / 1e6;
 
@@ -116,8 +117,9 @@ export function buildModel(data,meshAssets=new Map()) {
     if(s.type==='indexedMesh') {
       const asset=meshAssets.get(s.asset);if(!asset)throw new Error('Missing geometry asset: '+s.asset);
       const geom=new THREE.BufferGeometry();
-      geom.setAttribute('position',new THREE.BufferAttribute(new Float32Array(asset,s.positionByteOffset,s.vertexCount*3),3));
-      geom.setIndex(new THREE.BufferAttribute(new Uint32Array(asset,s.indexByteOffset,s.indexCount),1));
+      const opened=openPlanarPanels(new Float32Array(asset,s.positionByteOffset,s.vertexCount*3),new Uint32Array(asset,s.indexByteOffset,s.indexCount),s.panelOpenings);
+      geom.setAttribute('position',new THREE.BufferAttribute(opened.positions,3));
+      geom.setIndex(new THREE.BufferAttribute(opened.indices,1));
       geom.computeVertexNormals();geom.computeBoundingBox();geom.computeBoundingSphere();
       const m=mesh(g,geom,e.material);m.castShadow=false;
     }
@@ -244,10 +246,10 @@ export function buildModel(data,meshAssets=new Map()) {
     if(s.type==='opening') {
       const {width:w,height:h,depth:d,center:p,rotation:r,doorWidth:dw=0}=s;
       g.position.fromArray(p); g.rotation.y=r || 0;
-      const t=.035;
+      const t=s.frameWidth ?? .035;
       // The clear door opening is kept free. The leaf is represented open beside it.
       const fillStart=dw>0?dw:0;
-      if(w>fillStart+.03) box(g,[w-fillStart,h,.012],[fillStart/2,0,0],'glass');
+      if(w>fillStart+.03) box(g,s.frameWidth&&!dw?[w-2*t,h-2*t,.012]:[w-fillStart,h,.012],[fillStart/2,0,0],'glass');
       for(const x of [-1,1])box(g,[t,h,d],[x*(w/2-t/2),0,0],'frame');
       for(const y of [-1,1])box(g,[w,t,d],[0,y*(h/2-t/2),0],'frame');
       if(dw>0) {
