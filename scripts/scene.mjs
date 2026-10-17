@@ -3,6 +3,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {openPlanarPanels} from './panel-opening.mjs';
 import {subtractVisualBox} from './visual-opening.mjs';
 import {selectMeshFaces} from './mesh-selection.mjs';
+import {addContext} from './context.mjs';
 
 const round = v => Math.round(v * 1e6) / 1e6;
 
@@ -77,6 +78,7 @@ export function buildModel(data,meshAssets=new Map()) {
     g.userData={elementId:e.id,layerId:e.layer,name:e.name,status:e.status || 'source',variant:e.variant || 'common',costKey:e.costKey || null};
     layers.get(e.layer).add(g); elements.set(e.id,g);
     const s=e.geometry;
+    if(s.type.startsWith('context'))addContext(g,s,mat,prismGeometry);
     if(s.type==='box') box(g,s.size,s.center,e.material,s.rotation || 0);
     if(s.type==='surface')surface(g,s.width,s.height,s.center,e.material,s.rotation || 0);
     if(s.type==='display'){

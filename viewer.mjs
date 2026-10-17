@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R07-20261017';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R07-20261017';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R08-20261017';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R08-20261017';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,6 +15,7 @@ let activeVariant='lstk';
 let environmentMode='day',environmentLights,facadeFixtures=[],lastLightUpdate=0;
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
 const keys=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+raycaster.params.Line.threshold=.04;
 const clipPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),sliceHeight);
 let toastTimer,resizeObserver,labelItems=[],framingFactor=1;
 const target=new THREE.Vector3(5.3,1.4,-5.8);
@@ -86,7 +87,7 @@ function syncCoordination(){
   for(const e of data.elements.filter(e=>e.followsLayer)){
     const o=elementObjects.get(e.id);if(o)o.visible=elementInVariant(e,activeVariant)&&!!layers.get(e.followsLayer)?.visible&&!hiddenElements.has(e.id)&&(!e.replaces||!hiddenElements.has(e.replaces));
   }
-  const note=$('coordination-notice');if(note)note.textContent=enabled?'Каркас у окна — временная увязка · ожидается Direct Invest':'Исходный каркас · показаны пересечения с окном по АГО';
+  const note=$('coordination-notice');if(note)note.textContent=activeView==='site'?'Окружение по ЦММ · высоты и озеленение условные':enabled?'Каркас у окна — временная увязка · ожидается Direct Invest':'Исходный каркас · показаны пересечения с окном по АГО';
 }
 function refreshFacadeLights(){
   if(!camera)return;
@@ -111,7 +112,7 @@ function setEnvironment(mode){
 function setSlice(enabled,height=sliceHeight){
   sliceActive=enabled;sliceHeight=height;clipPlane.constant=height;
   renderer.clippingPlanes=[];
-  model?.traverse(o=>{if(o.isMesh){const materials=Array.isArray(o.material)?o.material:[o.material];for(const m of materials){m.clippingPlanes=enabled?[clipPlane]:[];m.clipShadows=true;}}});
+  model?.traverse(o=>{if(o.isMesh||o.isLine){const materials=Array.isArray(o.material)?o.material:[o.material];for(const m of materials){m.clippingPlanes=enabled?[clipPlane]:[];m.clipShadows=true;}}});
   $('slice-enabled').checked=enabled;$('slice').value=height;
   $('slice-value').value=number(height)+' м';
 }
@@ -165,7 +166,7 @@ function cameraView(position,lookAt,useOrtho=false){
   if(!useOrtho&&!walk){const aspect=$('viewport').clientWidth/$('viewport').clientHeight;framingFactor=Math.max(1,.82/aspect);const focus=new THREE.Vector3().fromArray(lookAt);camera.position.sub(focus).multiplyScalar(framingFactor).add(focus);}
   if(useOrtho){camera.up.set(0,0,-1);camera.zoom=1;}
   controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.085;
-  controls.minDistance=1;controls.maxDistance=65;controls.maxPolarAngle=Math.PI/2-.015;
+  controls.minDistance=1;controls.maxDistance=activeView==='site'?350:65;controls.maxPolarAngle=Math.PI/2-.015;
   controls.target.fromArray(lookAt);controls.enableRotate=!useOrtho;controls.update();resize();
 }
 function defaultLayers(){for(const l of data.layers)layers.get(l.id).visible=l.defaultVisible&&(!l.variant||l.variant===activeVariant);applyVariant();updateLayerUI();}
@@ -173,8 +174,13 @@ function setView(view){
   if(view==='walk'){startWalk($('walk-start').value || 'hall');return;}
   if(walk)exitWalk(false);
   activeView=view;defaultLayers();
+  perspective.far=view==='site'?400:200;perspective.updateProjectionMatrix();
   if(view==='overview'){
     setSlice(false);cameraView([-17,12.5,15],[4.8,1.8,-5]);
+  }else if(view==='site'){
+    setSlice(false);cameraView([-48,79,74],[30,1,-12]);
+    const section=document.querySelector('input[data-group="Окружение"]')?.closest('details');
+    if(section){section.open=true;if(matchMedia('(min-width:851px)').matches)section.scrollIntoView({block:'nearest'});}
   }else if(view==='plan'){
     setSlice(true,1.6);cameraView([5.3,28,-7.08],[5.3,0,-7.08],true);
   }else if(view==='interior'){
@@ -192,7 +198,7 @@ function setView(view){
 }
 function viewUI(){
   document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===activeView);b.setAttribute('aria-pressed',String(b.dataset.view===activeView));});
-  const titles={overview:'Общий вид',plan:'План / срез '+number(sliceHeight)+' м',interior:'Интерьер / открытая модель',frame:'Каркас',engineering:'Точки подключения ТХ',walk:'Прогулка внутри проекта'};
+  const titles={overview:'Общий вид',site:'Участок / чертёжное окружение',plan:'План / срез '+number(sliceHeight)+' м',interior:'Интерьер / открытая модель',frame:'Каркас',engineering:'Точки подключения ТХ',walk:'Прогулка внутри проекта'};
   titles[activeView]+=' · '+variantById(data,activeVariant).name;
   $('view-label').innerHTML='<span class="live-dot"></span>'+titles[activeView];
   $('walk-ui').hidden=!walk;
@@ -345,7 +351,7 @@ async function init(){
   model=gltf.scene;model.traverse(o=>{
     if(o.userData.layerId&&!o.userData.elementId)layers.set(o.userData.layerId,o);
     if(o.userData.elementId)elementObjects.set(o.userData.elementId,o);
-    if(o.isMesh){o.castShadow=!o.material.transparent&&metadata.get(o.parent?.userData.elementId)?.geometry.type!=='indexedMesh';o.receiveShadow=true;}
+    if(o.isMesh){o.castShadow=!o.userData.context&&!o.material.transparent&&metadata.get(o.parent?.userData.elementId)?.geometry.type!=='indexedMesh';o.receiveShadow=!o.userData.context;}
   });
   if(layers.size!==data.layers.length||elementObjects.size!==data.elements.length)throw new Error('Состав GLB не совпадает с описанием модели');
   for(const e of data.elements.filter(e=>e.finishMaterial))elementObjects.get(e.id).traverse(o=>{
@@ -358,10 +364,23 @@ async function init(){
   applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
   $('environment-mode').addEventListener('change',e=>setEnvironment(e.target.value));
   setEnvironment(new URLSearchParams(location.search).get('light'));
-  const query=new URLSearchParams(location.search);const view=query.get('view');setView(['plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
+  const query=new URLSearchParams(location.search);const view=query.get('view');setView(['site','plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();
-  renderer.setAnimationLoop(time=>{const dt=Math.min((time-last)/1000,.05);last=time;if(walk)updateWalk(dt);else controls.update();if(time-lastLightUpdate>200){refreshFacadeLights();lastLightUpdate=time;}renderer.render(scene,camera);updateLabels();});
+  const perf=query.has('perf')?{signature:'',warmup:0,samples:[],logged:false}:null;
+  renderer.setAnimationLoop(time=>{
+    const frameStart=performance.now(),interval=time-last,dt=Math.min(interval/1000,.05);last=time;
+    if(walk)updateWalk(dt);else controls.update();if(time-lastLightUpdate>200){refreshFacadeLights();lastLightUpdate=time;}
+    renderer.render(scene,camera);updateLabels();
+    if(perf){
+      const context=data.layers.filter(l=>l.id.startsWith('env.')&&l.id!=='env.site'&&layers.get(l.id).visible).map(l=>l.id);
+      const signature=activeView+'|'+context.join(',');if(signature!==perf.signature)Object.assign(perf,{signature,warmup:0,samples:[],logged:false});
+      if(perf.warmup++>30&&!perf.logged){perf.samples.push([interval,performance.now()-frameStart]);if(perf.samples.length===120){
+        const percentile=(i,p)=>perf.samples.map(v=>v[i]).sort((a,b)=>a-b)[Math.floor(119*p)];
+        console.info('CAFE_PERF '+JSON.stringify({view:activeView,context,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,lines:renderer.info.render.lines,medianFrameMs:percentile(0,.5),p95FrameMs:percentile(0,.95),medianCpuMs:percentile(1,.5),width:$('viewport').clientWidth,height:$('viewport').clientHeight,pixelRatio:renderer.getPixelRatio()}));perf.logged=true;
+      }}
+    }
+  });
 }
 init().catch(error=>{
   console.error(error);$('loading-status').textContent='Не удалось открыть 3D: '+error.message+'. Скачайте GLB через «О модели» или откройте страницу в браузере с WebGL.';

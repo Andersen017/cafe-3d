@@ -39,5 +39,10 @@ await fs.copyFile(path.join(threeRoot,'LICENSE'),path.join(vendorRoot,'THREE-LIC
 await fs.writeFile(path.join(root,'.nojekyll'),'');
 const stats={revision:data.revision,date:data.date,elements:data.elements.length,layers:data.layers.length,
   rooms:data.rooms.length,variants:data.variants?.options.map(v=>v.id),catalogItems:data.catalog?.length || 0,glbBytes:glb.byteLength,bounds:modelBounds(scene),runtime:'three 0.180.0'};
+if(data.context){
+  const context={triangles:0,segments:0,drawObjects:0,glbIncreaseBytes:glb.byteLength-data.context.baseGlbBytes,budgetBytes:data.context.geometryBudgetBytes};
+  scene.traverse(o=>{if(!o.userData.context||!o.geometry)return;context.drawObjects++;const count=o.geometry.index?.count||o.geometry.attributes.position.count;if(o.isLine)context.segments+=count/2;else if(o.isMesh)context.triangles+=count/3;});
+  stats.context=context;
+}
 await fs.writeFile(path.join(root,'assets/model-info.json'),JSON.stringify(stats,null,2));
 console.log(JSON.stringify(stats,null,2));

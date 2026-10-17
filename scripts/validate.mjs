@@ -54,11 +54,11 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
-check('R07 preserves 1176 unaffected R06 elements, room layout, TX catalogue and walk obstacles',()=>{
-  const source=data.elements.filter(e=>!e.id.startsWith('r07.')&&e.id!=='lstk-canopy');
+check('R08 preserves all 1177 cafe elements from R07, room layout, TX catalogue and walk obstacles',()=>{
+  const source=data.elements.filter(e=>!e.id.startsWith('r08.')&&e.id!=='env.site-001');
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,1176);assert.equal(data.elements.length,1178);
-  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'3be82c84c59a976cba70e731cdf09198227ad663e44e19d2c6c82b4f36b05fc7');
+  assert.equal(source.length,1177);assert.equal(data.elements.length,1182);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'6ace522dbc31dfc3a420e6616a7ec4a20dd7ab17c44a715844f30a7740b4c795');
   assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
   assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
 });
@@ -190,7 +190,35 @@ check('Exported GLB independently loads with all layers and element IDs',()=>{
   const layerIds=new Set(),ids=new Set();let meshes=0;
   gltf.scene.traverse(o=>{if(o.userData.layerId&&!o.userData.elementId)layerIds.add(o.userData.layerId);if(o.userData.elementId){ids.add(o.userData.elementId);assert.equal(o.userData.variant,data.elements.find(e=>e.id===o.userData.elementId).variant||'common');}if(o.isMesh){meshes++;for(const a of ['position','normal'])for(const n of o.geometry.attributes[a].array)assert(Number.isFinite(n));}});
   assert.equal(layerIds.size,data.layers.length);assert.equal(ids.size,data.elements.length);assert(meshes>data.elements.length);
-  const b=new THREE.Box3().setFromObject(gltf.scene);assert(Math.abs(b.max.y-5.05)<1e-5);assert(b.min.z<=-19.99);
+  const cafe=new THREE.Box3();gltf.scene.traverse(o=>{if(o.userData.elementId&&!o.userData.layerId.startsWith('env.'))cafe.expandByObject(o);});assert(Math.abs(cafe.max.y-5.05)<1e-5);assert(cafe.min.z<-16.6);
+  const b=new THREE.Box3().setFromObject(gltf.scene);assert(Math.abs(b.max.y-16.3)<1e-5);assert(b.min.z<-55.5);assert.equal(b.min.x,-24);assert.equal(b.max.x,104);
+});
+check('Four blueprint context layers are common to both variants and retain original CMM placement',()=>{
+  assert.equal(data.context.placement,'original-cmm-axes');assert.deepEqual(data.context.cmmToModel,{x:'u',zOffset:2.45,zSign:-1});
+  assert.equal(data.context.sourceGeometryHash,'772a8a320efa875cc2f00716dc1fd47904e01a538bf1f47ba3aebe6792a11198');
+  for(const id of ['env.buildings','env.paving','env.fences','env.green']){
+    const l=data.layers.find(l=>l.id===id);assert(l.defaultVisible);assert(!l.variant);
+    for(const v of ['lstk','km'])assert.equal(includedElements(data,v).filter(e=>e.layer===id).length,1);
+  }
+  const buildings=data.elements.find(e=>e.layer==='env.buildings').geometry.buildings;assert.equal(buildings.length,1);assert.equal(buildings[0].floorCount,5);assert.equal(buildings[0].height,16.5);assert.equal(buildings[0].sourceHandle,'1A73');
+  const x=Math.min(...buildings[0].points.map(p=>p[0]));assert(Math.abs(x-27.3334)<1e-4);
+  assert(!data.context.elevationsAreSurveyed);assert(!data.context.treesAreInventory);assert.equal(data.context.excludedExistingCheckpoint,'1E1E');
+});
+const contextStats={meshes:0,lines:0,triangles:0,segments:0,geometryBytes:0,glbIncreaseBytes:bytes.length-25760552};
+check('Blueprint context stays within the 2 MB budget without textures, lights or shadow passes',()=>{
+  assert(contextStats.glbIncreaseBytes>0&&contextStats.glbIncreaseBytes<=data.context.geometryBudgetBytes);
+  gltf.scene.traverse(o=>{if(!o.userData.context)return;assert(!o.isLight);if(!o.geometry)return;
+    assert(!o.material.map&&!o.material.normalMap&&!o.material.roughnessMap);assert(!o.castShadow);
+    const g=o.geometry;contextStats.geometryBytes+=Object.values(g.attributes).reduce((n,a)=>n+a.array.byteLength,0)+(g.index?.array.byteLength||0);
+    if(o.isLine){contextStats.lines++;contextStats.segments+=(g.index?.count||g.attributes.position.count)/2;}
+    else if(o.isMesh){contextStats.meshes++;contextStats.triangles+=(g.index?.count||g.attributes.position.count)/3;}
+  });
+  assert.equal(contextStats.lines,4);assert(contextStats.meshes<=8);assert(contextStats.geometryBytes<2000000);assert(contextStats.triangles<15000);assert(contextStats.segments<10000);
+});
+check('Source context paving does not fill or cover the existing cafe platforms',()=>{
+  let paving;gltf.scene.traverse(o=>{if(o.userData.elementId==='r08.context.paving')paving=o;});assert(paving);
+  const ray=new THREE.Raycaster();ray.far=4;
+  for(const [x,z] of [[5.3,-5.3],[5.3,1],[5.3,-13]]){ray.set(new THREE.Vector3(x,2,z),new THREE.Vector3(0,-1,0));const hits=ray.intersectObject(paving,true).filter(h=>h.object.isMesh);assert.equal(hits.length,0,`${x},${z}`);}
 });
 check('Source profiles stay byte-identical; separated infill and frame form a lossless partition',()=>{
   const hash=a=>createHash('sha256').update(Buffer.from(a.buffer,a.byteOffset,a.byteLength)).digest('hex');
@@ -310,6 +338,6 @@ check('Canopy fascia closes above structural edges, caps are continuous and sour
   }
   const frameTop=data.elements.find(e=>e.id==='lstk-canopy').geometry.bounds.max[1];assert(3.97-frameTop>.019);
 });
-const stats={result:'PASS',checks:passed,glbBytes:bytes.length,revision:data.revision};
+const stats={result:'PASS',checks:passed,glbBytes:bytes.length,revision:data.revision,context:contextStats};
 await fs.mkdir(path.join(root,'.work'),{recursive:true});await fs.writeFile(path.join(root,'.work/validation.json'),JSON.stringify(stats,null,2));
 console.log(JSON.stringify(stats,null,2));

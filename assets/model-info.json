@@ -1,26 +1,33 @@
 {
-  "revision": "R07",
+  "revision": "R08",
   "date": "2026-10-17",
-  "elements": 1178,
-  "layers": 34,
+  "elements": 1182,
+  "layers": 38,
   "rooms": 10,
   "variants": [
     "lstk",
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 25760552,
+  "glbBytes": 26226372,
   "bounds": {
     "min": [
-      -4,
-      -0.205,
-      -20
+      -24,
+      -0.24,
+      -55.550411
     ],
     "max": [
-      14.6,
-      5.05,
-      6
+      104,
+      16.299999,
+      26.481674
     ]
   },
-  "runtime": "three 0.180.0"
+  "runtime": "three 0.180.0",
+  "context": {
+    "triangles": 5544,
+    "segments": 2407,
+    "drawObjects": 10,
+    "glbIncreaseBytes": 465820,
+    "budgetBytes": 2000000
+  }
 }
