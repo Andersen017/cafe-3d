@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R09-20261017';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R09-20261017';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R10-20261017';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R10-20261017';
+import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R10-20261017';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,6 +14,9 @@ const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
 let environmentMode='evening',environmentLights,facadeFixtures=[],lastLightUpdate=0;
+let sceneryMotion,animationEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches,contextMuted=false;
+let contextSnapshot=new Map();
+const contextLayers=()=>data.layers.filter(l=>l.id.startsWith('env.')&&l.id!=='env.site');
 let walk=false,yaw=0,pitch=0,walker=[8.8,-6.8],walkDrag=null,joystickVector=[0,0],joystickPointer=null;
 const keys=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 raycaster.params.Line.threshold=.04;
@@ -57,6 +61,7 @@ function catalogPanel(){
 }
 function updateLayerUI(){
   if(!data)return;
+  updateContextButtons();
   syncCoordination();refreshFacadeLights();
   const finished=!!layers.get('design.exterior')?.visible;
   for(const paint of finishPaints){
@@ -77,6 +82,28 @@ function updateLayerUI(){
   for(const [i,id] of ['em.points','vk.water','vk.sewage'].entries())$('engineering-legend').children[i].hidden=!layers.get(id)?.visible;
   const count=data.elements.filter(e=>elementInVariant(e,activeVariant)&&layers.get(e.layer)?.visible&&!hiddenElements.has(e.id)).length;
   $('visible-count').textContent=count+' элементов на экране';
+}
+function updateContextButtons(){
+  const ids=contextLayers(),count=ids.filter(l=>layers.get(l.id)?.visible).length;
+  if(count)contextMuted=false;
+  const toggle=$('context-toggle');toggle.setAttribute('aria-pressed',String(count>0));
+  toggle.classList.toggle('active',count>0);toggle.dataset.partial=String(count>0&&count<ids.length);
+  toggle.title=count?'Скрыть окружение; выбранные слои сохранятся':'Показать окружение';
+  const motion=$('animation-toggle');motion.setAttribute('aria-pressed',String(animationEnabled));
+  motion.classList.toggle('active',animationEnabled);motion.textContent=animationEnabled?'Ⅱ Анимация':'▷ Анимация';
+  motion.disabled=!['env.sky','env.traffic'].some(id=>layers.get(id)?.visible);
+  motion.title=motion.disabled?'Покажите небо или транспорт, чтобы включить движение':animationEnabled?'Остановить движение; силуэты останутся видимыми':'Включить движение облаков, птиц и машины';
+}
+function toggleContext(){
+  const ids=contextLayers();
+  if(ids.some(l=>layers.get(l.id).visible)){
+    contextSnapshot=new Map(ids.map(l=>[l.id,layers.get(l.id).visible]));contextMuted=true;
+    for(const l of ids)layers.get(l.id).visible=false;
+  }else{
+    contextMuted=false;
+    for(const l of ids)layers.get(l.id).visible=contextSnapshot.has(l.id)?contextSnapshot.get(l.id):l.defaultVisible;
+  }
+  updateLayerUI();
 }
 function syncCoordination(){
   const enabled=!!layers.get('coordination.window')?.visible;
@@ -112,6 +139,10 @@ function setEnvironment(mode){
   toggle.textContent=night?'☀ День':'☾ Вечер';
   toggle.setAttribute('aria-label',night?'Включить дневной режим':'Включить вечерний режим');
   toggle.title=night?'Сейчас вечер. Переключить на день':'Сейчас день. Переключить на вечер';
+  model.traverse(o=>{
+    if(o.userData.skyMode)o.visible=o.userData.skyMode===environmentMode;
+    if(o.userData.sceneryInk)o.material.color.set(night?'#a9bfcc':'#6c8797');
+  });
   refreshFacadeLights();
 }
 function setSlice(enabled,height=sliceHeight){
@@ -174,7 +205,7 @@ function cameraView(position,lookAt,useOrtho=false){
   controls.minDistance=1;controls.maxDistance=activeView==='site'?350:65;controls.maxPolarAngle=Math.PI/2-.015;
   controls.target.fromArray(lookAt);controls.enableRotate=!useOrtho;controls.update();resize();
 }
-function defaultLayers(){for(const l of data.layers)layers.get(l.id).visible=l.defaultVisible&&(!l.variant||l.variant===activeVariant);applyVariant();updateLayerUI();}
+function defaultLayers(){for(const l of data.layers)layers.get(l.id).visible=l.defaultVisible&&(!l.variant||l.variant===activeVariant)&&!(contextMuted&&l.id.startsWith('env.')&&l.id!=='env.site');applyVariant();updateLayerUI();}
 function setView(view){
   if(view==='walk'){startWalk($('walk-start').value || 'hall');return;}
   if(walk)exitWalk(false);
@@ -293,6 +324,8 @@ function events(){
   $('slice-enabled').addEventListener('change',()=>{if(walk)exitWalk(false);setSlice($('slice-enabled').checked);});
   $('slice').addEventListener('input',()=>{if(walk)exitWalk(false);setSlice(true,Number($('slice').value));if(activeView==='plan')viewUI();});
   $('home-button').addEventListener('click',()=>setView('overview'));
+  $('context-toggle').addEventListener('click',toggleContext);
+  $('animation-toggle').addEventListener('click',()=>{animationEnabled=!animationEnabled;updateContextButtons();});
   $('facade-view').addEventListener('change',()=>{
     const value=$('facade-view').value;if(!value)return;setView('overview');
     const views={front:[[5.3,7,26],[5.3,2,-.5]],rear:[[5.3,12,-34],[5.3,1.5,-10.5]],left:[[-24,9,-6],[5.3,2,-6]],right:[[34,9,-6],[5.3,2,-6]]};
@@ -363,6 +396,7 @@ async function init(){
     if(o.isMesh){o.material=o.material.clone();finishPaints.push({material:o.material,source:e.material,finish:e.finishMaterial});}
   });
   scene.add(model);
+  sceneryMotion=createSceneryMotion(model);
   facadeFixtures=data.elements.filter(e=>e.geometry.type==='upDownLight').map(e=>({object:elementObjects.get(e.id),intensity:e.geometry.intensity}));
   $('about-content').innerHTML='<ul>'+data.limits.map(t=>'<li>'+escape(t)+'</li>').join('')+'</ul>';
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
@@ -373,16 +407,23 @@ async function init(){
   $('loading').hidden=true;
   let last=performance.now();
   const perf=query.has('perf')?{signature:'',warmup:0,samples:[],logged:false}:null;
+  if(perf){const output=document.createElement('output');output.id='performance-readout';output.setAttribute('aria-label','Проверка производительности');output.className='performance-readout';output.textContent='Замер производительности…';$('viewport').append(output);}
   renderer.setAnimationLoop(time=>{
     const frameStart=performance.now(),interval=time-last,dt=Math.min(interval/1000,.05);last=time;
     if(walk)updateWalk(dt);else controls.update();if(time-lastLightUpdate>200){refreshFacadeLights();lastLightUpdate=time;}
+    const motionStart=performance.now();
+    sceneryMotion.update(dt,animationEnabled&&!document.hidden);
+    const motionMs=performance.now()-motionStart;
     renderer.render(scene,camera);updateLabels();
     if(perf){
       const context=data.layers.filter(l=>l.id.startsWith('env.')&&l.id!=='env.site'&&layers.get(l.id).visible).map(l=>l.id);
-      const signature=activeView+'|'+context.join(',');if(signature!==perf.signature)Object.assign(perf,{signature,warmup:0,samples:[],logged:false});
-      if(perf.warmup++>30&&!perf.logged){perf.samples.push([interval,performance.now()-frameStart]);if(perf.samples.length===120){
-        const percentile=(i,p)=>perf.samples.map(v=>v[i]).sort((a,b)=>a-b)[Math.floor(119*p)];
-        console.info('CAFE_PERF '+JSON.stringify({view:activeView,context,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,lines:renderer.info.render.lines,medianFrameMs:percentile(0,.5),p95FrameMs:percentile(0,.95),medianCpuMs:percentile(1,.5),width:$('viewport').clientWidth,height:$('viewport').clientHeight,pixelRatio:renderer.getPixelRatio()}));perf.logged=true;
+      const signature=activeView+'|'+environmentMode+'|'+animationEnabled+'|'+context.join(',');if(signature!==perf.signature){Object.assign(perf,{signature,warmup:0,samples:[],logged:false});$('performance-readout').textContent='Замер производительности…';}
+      if(!perf.logged)$('performance-readout').textContent='Замер производительности: '+perf.samples.length+' / 30 кадров';
+      if(perf.warmup++>5&&!perf.logged){perf.samples.push([interval,performance.now()-frameStart,motionMs]);if(perf.samples.length===30){
+        const percentile=(i,p)=>perf.samples.map(v=>v[i]).sort((a,b)=>a-b)[Math.floor((perf.samples.length-1)*p)];
+        const result={view:activeView,light:environmentMode,animation:animationEnabled,context,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,lines:renderer.info.render.lines,medianFrameMs:percentile(0,.5),p95FrameMs:percentile(0,.95),medianCpuMs:percentile(1,.5),medianMotionMs:percentile(2,.5),width:$('viewport').clientWidth,height:$('viewport').clientHeight,pixelRatio:renderer.getPixelRatio()};
+        console.info('CAFE_PERF '+JSON.stringify(result));
+        $('performance-readout').textContent=JSON.stringify(result);perf.logged=true;
       }}
     }
   });

@@ -1,15 +1,15 @@
 {
-  "revision": "R09",
+  "revision": "R10",
   "date": "2026-10-17",
-  "elements": 1182,
-  "layers": 38,
+  "elements": 1186,
+  "layers": 41,
   "rooms": 10,
   "variants": [
     "lstk",
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 26226372,
+  "glbBytes": 26261548,
   "bounds": {
     "min": [
       -24,
@@ -25,9 +25,9 @@
   "runtime": "three 0.180.0",
   "context": {
     "triangles": 5544,
-    "segments": 2407,
-    "drawObjects": 10,
-    "glbIncreaseBytes": 465820,
+    "segments": 3524,
+    "drawObjects": 20,
+    "glbIncreaseBytes": 500996,
     "budgetBytes": 2000000
   }
 }

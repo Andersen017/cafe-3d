@@ -7,6 +7,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import {walkBlocked,groundAt,moveWalker,inPolygon} from './walk.mjs';
 import {includedElements,variantById} from './variants.mjs';
+import {carPose,createSceneryMotion} from './scenery-motion.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const json=await fs.readFile(path.join(root,'model/canonical.json'),'utf8');
 const data=JSON.parse(json);const passed=[];
@@ -55,9 +56,9 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
 check('R08 preserves all 1177 cafe elements from R07, room layout, TX catalogue and walk obstacles',()=>{
-  const source=data.elements.filter(e=>!e.id.startsWith('r08.')&&e.id!=='env.site-001');
+  const source=data.elements.filter(e=>!e.id.startsWith('r08.')&&!e.id.startsWith('r10.')&&e.id!=='env.site-001');
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,1177);assert.equal(data.elements.length,1182);
+  assert.equal(source.length,1177);assert.equal(data.elements.length,1186);
   assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'6ace522dbc31dfc3a420e6616a7ec4a20dd7ab17c44a715844f30a7740b4c795');
   assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
   assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
@@ -191,7 +192,7 @@ check('Exported GLB independently loads with all layers and element IDs',()=>{
   gltf.scene.traverse(o=>{if(o.userData.layerId&&!o.userData.elementId)layerIds.add(o.userData.layerId);if(o.userData.elementId){ids.add(o.userData.elementId);assert.equal(o.userData.variant,data.elements.find(e=>e.id===o.userData.elementId).variant||'common');}if(o.isMesh){meshes++;for(const a of ['position','normal'])for(const n of o.geometry.attributes[a].array)assert(Number.isFinite(n));}});
   assert.equal(layerIds.size,data.layers.length);assert.equal(ids.size,data.elements.length);assert(meshes>data.elements.length);
   const cafe=new THREE.Box3();gltf.scene.traverse(o=>{if(o.userData.elementId&&!o.userData.layerId.startsWith('env.'))cafe.expandByObject(o);});assert(Math.abs(cafe.max.y-5.05)<1e-5);assert(cafe.min.z<-16.6);
-  const b=new THREE.Box3().setFromObject(gltf.scene);assert(Math.abs(b.max.y-16.3)<1e-5);assert(b.min.z<-55.5);assert.equal(b.min.x,-24);assert.equal(b.max.x,104);
+  const b=new THREE.Box3().setFromObject(gltf.scene);assert(b.max.y>=16.3-1e-5&&b.max.y<19);assert(b.min.z<-55.5);assert.equal(b.min.x,-24);assert.equal(b.max.x,104);
 });
 check('Four blueprint context layers are common to both variants and retain original CMM placement',()=>{
   assert.equal(data.context.placement,'original-cmm-axes');assert.deepEqual(data.context.cmmToModel,{x:'u',zOffset:2.45,zSign:-1});
@@ -213,7 +214,41 @@ check('Blueprint context stays within the 2 MB budget without textures, lights o
     if(o.isLine){contextStats.lines++;contextStats.segments+=(g.index?.count||g.attributes.position.count)/2;}
     else if(o.isMesh){contextStats.meshes++;contextStats.triangles+=(g.index?.count||g.attributes.position.count)/3;}
   });
-  assert.equal(contextStats.lines,4);assert(contextStats.meshes<=8);assert(contextStats.geometryBytes<2000000);assert(contextStats.triangles<15000);assert(contextStats.segments<10000);
+  assert(contextStats.lines>=4&&contextStats.lines<=18);assert(contextStats.meshes<=8);assert(contextStats.geometryBytes<2000000);assert(contextStats.triangles<15000);assert(contextStats.segments<10000);
+});
+check('R10 scenery adds independent common layers and retains every R09 element',()=>{
+  for(const id of ['env.sky','env.people','env.traffic']){
+    const layer=data.layers.find(l=>l.id===id);assert(layer?.defaultVisible);assert(!layer.variant);
+    for(const e of data.elements.filter(e=>e.layer===id)){assert.equal(e.status,'schematic');assert(!e.variant);}
+  }
+  const original=data.elements.filter(e=>!e.id.startsWith('r10.'));
+  assert.equal(original.length,1182);assert.equal(data.layers.length,41);
+  const sky=data.elements.find(e=>e.layer==='env.sky').geometry;assert.equal(sky.clouds.length,3);
+  assert.equal(data.elements.filter(e=>e.geometry.motion?.kind==='car').length,1);
+  const celestial=[];gltf.scene.traverse(o=>{if(o.userData.skyMode)celestial.push(o.userData.skyMode);});assert.deepEqual(celestial.sort(),['day','evening']);
+});
+check('Animated car remains on CMM road surfaces and has a continuous closed route',()=>{
+  const car=data.elements.find(e=>e.id==='r10.context.car'),m=car.geometry.motion;
+  const road=data.elements.find(e=>e.layer==='env.paving').geometry.surfaces.filter(p=>p.kind==='road');
+  const onRoad=p=>road.some(r=>inPolygon(...p,r.points)&&!(r.holes||[]).some(h=>inPolygon(...p,h)));
+  const total=2*(m.zMax-m.zMin)+2*Math.PI*m.radius;
+  for(let i=0;i<400;i++){
+    const p=carPose(total*i/400,m),c=Math.cos(p.yaw),s=Math.sin(p.yaw);
+    for(const x of [-.95,.95])for(const z of [-2.2,2.2])assert(onRoad([p.x+x*c+z*s,p.z-x*s+z*c]),`road at ${i}`);
+  }
+  const a=carPose(0,m),b=carPose(total,m);assert(Math.hypot(a.x-b.x,a.z-b.z)<1e-8);
+  for(const d of [m.zMax-m.zMin,m.zMax-m.zMin+Math.PI*m.radius,total-Math.PI*m.radius]){
+    const a=carPose(d-1e-5,m),b=carPose(d+1e-5,m);assert(Math.hypot(a.x-b.x,a.z-b.z)<.0001);assert(Math.cos(a.yaw-b.yaw)>.99999);
+  }
+});
+check('Scenery motion freezes on pause and hidden layers and resumes without resetting',()=>{
+  const root=new THREE.Group(),layer=new THREE.Group(),car=new THREE.Group();root.add(layer);layer.add(car);
+  car.userData.contextMotion=data.elements.find(e=>e.id==='r10.context.car').geometry.motion;
+  const motion=createSceneryMotion(root);assert.equal(motion.count,1);
+  const a=car.position.clone();motion.update(.05,true);assert(car.position.distanceTo(a)>.09);
+  const b=car.position.clone();motion.update(.05,false);assert(car.position.equals(b));
+  layer.visible=false;motion.update(.05,true);assert(car.position.equals(b));
+  layer.visible=true;motion.update(.05,true);assert(car.position.distanceTo(b)>.09&&car.position.distanceTo(b)<.11);
 });
 check('Source context paving does not fill or cover the existing cafe platforms',()=>{
   let paving;gltf.scene.traverse(o=>{if(o.userData.elementId==='r08.context.paving')paving=o;});assert(paving);
