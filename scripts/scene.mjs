@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {openPlanarPanels} from './panel-opening.mjs';
 import {subtractVisualBox} from './visual-opening.mjs';
+import {selectMeshFaces} from './mesh-selection.mjs';
 
 const round = v => Math.round(v * 1e6) / 1e6;
 
@@ -130,10 +131,12 @@ export function buildModel(data,meshAssets=new Map()) {
     if(s.type==='indexedMesh') {
       const asset=meshAssets.get(s.asset);if(!asset)throw new Error('Missing geometry asset: '+s.asset);
       const geom=new THREE.BufferGeometry();
-      const opened=openPlanarPanels(new Float32Array(asset,s.positionByteOffset,s.vertexCount*3),new Uint32Array(asset,s.indexByteOffset,s.indexCount),s.panelOpenings);
+      const selected=selectMeshFaces(new Float32Array(asset,s.positionByteOffset,s.vertexCount*3),new Uint32Array(asset,s.indexByteOffset,s.indexCount),s.faceSelection,s.panelOpenings);
+      const opened=openPlanarPanels(selected.positions,selected.indices,selected.cuts);
       geom.setAttribute('position',new THREE.BufferAttribute(opened.positions,3));
       geom.setIndex(new THREE.BufferAttribute(opened.indices,1));
       geom.computeVertexNormals();geom.computeBoundingBox();geom.computeBoundingSphere();
+      const normals=geom.attributes.normal;for(let i=0;i<normals.count;i++)if(normals.getX(i)===0&&normals.getY(i)===0&&normals.getZ(i)===0)normals.setXYZ(i,0,1,0);
       const m=mesh(g,geom,e.material);m.castShadow=false;
     }
     if(s.type==='marker') {

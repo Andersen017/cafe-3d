@@ -54,12 +54,12 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
-check('R05 preserves 1089 unaffected R04 elements, room layout, TX catalogue and walk obstacles',()=>{
-  const changed=e=>e.id==='lstk-walls'||['ar.glazing-016','ar.glazing-017','finish.r04.reveal.ar.glazing-016','finish.r04.reveal.ar.glazing-017'].includes(e.id)||/^ar\.walls\.(core|outer|inner)-005(?:-lstk)?(?:-r04-\d+)?$/.test(e.id)||/^finish\.r03\.(lstk|km)\.front\.(panel-5|joint-5-2)(?:-r04-\d+)?$/.test(e.id);
-  const source=data.elements.filter(e=>!e.id.startsWith('r05.')&&!changed(e));
+check('R06 preserves 1172 unaffected R05 elements, room layout, TX catalogue and walk obstacles',()=>{
+  const changed=new Set(['lstk-walls','lstk-roof','r05.coord.lstk-walls']);
+  const source=data.elements.filter(e=>!e.id.startsWith('r06.')&&!changed.has(e.id));
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,1089);assert.equal(data.elements.length,1175);
-  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'2b1ee2bfdacb6dec0e6025ca6e63dcf85e4d570799e104989afa4961be17f547');
+  assert.equal(source.length,1172);assert.equal(data.elements.length,1177);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'c86c41b0e5efc00b6f4248d4ad7836186798a70b16172e957fd71653cc1628bf');
   assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
   assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
 });
@@ -193,23 +193,43 @@ check('Exported GLB independently loads with all layers and element IDs',()=>{
   assert.equal(layerIds.size,data.layers.length);assert.equal(ids.size,data.elements.length);assert(meshes>data.elements.length);
   const b=new THREE.Box3().setFromObject(gltf.scene);assert(Math.abs(b.max.y-5.05)<1e-5);assert(b.min.z<=-19.99);
 });
-check('GLB keeps every factory profile and only opens the four designated flat infill triangles',()=>{
+check('Source profiles stay byte-identical; separated infill and frame form a lossless partition',()=>{
   const hash=a=>createHash('sha256').update(Buffer.from(a.buffer,a.byteOffset,a.byteLength)).digest('hex');
   for(const e of frame){const o=gltf.scene.getObjectByName(e.id);assert(o);const m=o.children.find(o=>o.isMesh);assert(m);const p=m.geometry.attributes.position.array,src=positions.get(e.id),g=e.geometry,ix=m.geometry.index.array;
     const original=new Uint32Array(asset,g.indexByteOffset,g.indexCount);
-    assert.equal(hash(p.subarray(0,src.length)),hash(src));
-    if(!g.panelOpenings){assert.equal(p.length,src.length);assert.equal(ix.length,original.length);assert.equal(hash(ix),hash(original));continue;}
-    assert.equal(e.id,'lstk-walls');assert.deepEqual(g.panelOpenings.flatMap(c=>c.faces),[127666,127667,127668,127669]);
-    assert.equal(p.length,src.length+96);assert.equal(ix.length,original.length+36);
-    const removed=new Set(g.panelOpenings.flatMap(c=>c.faces));let n=0;
+    assert.equal(hash(p),hash(src));
+    if(!g.faceSelection){assert.equal(hash(ix),hash(original));continue;}
+    assert.equal(g.faceSelection.mode,'exclude');assert(!g.panelOpenings);
+    const fill=data.elements.find(a=>a.id==='r06.infill.'+e.id);assert(fill);assert.equal(fill.layer,'ar.lstk.infill');assert.deepEqual(fill.geometry.faceSelection,{...g.faceSelection,mode:'include'});
+    const ids=g.faceSelection.ranges.flatMap(([a,b])=>Array.from({length:b-a+1},(_,i)=>a+i));
+    const expected=e.id==='lstk-walls'?[289,'050584a15712cd31a55f5c2ffea2db34c3fc204647fe12a19651b40b59110677']:[48,'93166ca3d53e9ce57ba0ef57a94612246c5e5014666933f6f000b58d3d121f45'];
+    assert.equal(ids.length,expected[0]);assert.equal(hash(new Uint32Array(ids)),expected[1]);assert.equal(new Set(ids).size,ids.length);
+    const removed=new Set(ids);let n=0;
     for(let f=0;f<original.length/3;f++)if(!removed.has(f))for(let k=0;k<3;k++)assert.equal(ix[n++],original[f*3+k]);
-    let area=0;const [a,b,c,d]=g.panelOpenings[0].opening;
-    for(let k=n;k<ix.length;k+=3){const ps=[0,1,2].map(t=>Array.from(p.subarray(ix[k+t]*3,ix[k+t]*3+3)));for(const pt of ps)assert([0,.1].some(z=>Math.abs(pt[2]-z)<1e-7));
+    assert.equal(n,ix.length);assert.equal(ix.length+ids.length*3,original.length);
+    let fillObject;gltf.scene.traverse(o=>{if(o.userData.elementId===fill.id)fillObject=o;});assert(fillObject);
+    const fm=fillObject.children.find(o=>o.isMesh),fp=fm.geometry.attributes.position.array,fi=fm.geometry.index.array;
+    const opened=new Set((fill.geometry.panelOpenings||[]).flatMap(c=>c.faces));n=0;
+    for(const f of ids)if(!opened.has(f))for(let k=0;k<3;k++){const dest=fi[n++]*3,source=original[f*3+k]*3;for(let a=0;a<3;a++)assert.equal(fp[dest+a],src[source+a]);}
+    if(!opened.size){assert.equal(n,fi.length);continue;}
+    assert.deepEqual([...opened],[127666,127667,127668,127669]);
+    assert.equal(fi.length,(ids.length-4)*3+48);
+    let area=0;const [a,b,c,d]=fill.geometry.panelOpenings[0].opening;
+    for(let k=n;k<fi.length;k+=3){const ps=[0,1,2].map(t=>Array.from(fp.subarray(fi[k+t]*3,fi[k+t]*3+3)));for(const pt of ps)assert([0,.1].some(z=>Math.abs(pt[2]-z)<1e-7));
       const minX=Math.min(...ps.map(t=>t[0])),maxX=Math.max(...ps.map(t=>t[0])),minY=Math.min(...ps.map(t=>t[1])),maxY=Math.max(...ps.map(t=>t[1]));
       assert(maxX<=a+1e-6||minX>=c-1e-6||maxY<=b+1e-6||minY>=d-1e-6,'infill crosses the new window');
       area+=Math.abs((ps[1][0]-ps[0][0])*(ps[2][1]-ps[0][1])-(ps[1][1]-ps[0][1])*(ps[2][0]-ps[0][0]))/2;
     }
     assert(Math.abs(area-2*((6.165-3.185)*3.88-.6*.55))<1e-5);
+  }
+  const layer=data.layers.find(l=>l.id==='ar.lstk.infill');assert(layer.defaultVisible);assert.equal(layer.variant,'lstk');assert(!variantById(data,'lstk').frameLayers.includes(layer.id));
+});
+check('Bare LSTK walls are open between studs; toggled infill closes the same locations',()=>{
+  const wall=gltf.scene.getObjectByName('lstk-walls'),fill=[];gltf.scene.traverse(o=>{if(o.userData.elementId==='r06.infill.lstk-walls')fill.push(o);});assert(fill.length);
+  const ray=new THREE.Raycaster();ray.far=.5;
+  for(const x of [3.5,4.1,4.7,5.3]){
+    ray.set(new THREE.Vector3(x,.8,.25),new THREE.Vector3(0,0,-1));
+    assert.equal(ray.intersectObject(wall,true).length,0,`wall infill remains at ${x}`);assert(ray.intersectObjects(fill,true).length>0,`missing separated infill at ${x}`);
   }
 });
 check('New window has frame top +2.150 and glass top +2.100, coordinated with the selected assembly',()=>{
