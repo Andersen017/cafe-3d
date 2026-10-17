@@ -54,12 +54,11 @@ check('Catalogue references and quantities; D22 placed, three unassigned units r
   for(const id of ['equipment.softener.D19','equipment.magnetic-holder'])assert.equal(c(id).placedIds.length,0);
   assert.equal(data.catalog.reduce((n,c)=>n+c.unplacedQuantity,0),3);assert.equal(c('equipment.K5').quantity,2);
 });
-check('R06 preserves 1172 unaffected R05 elements, room layout, TX catalogue and walk obstacles',()=>{
-  const changed=new Set(['lstk-walls','lstk-roof','r05.coord.lstk-walls']);
-  const source=data.elements.filter(e=>!e.id.startsWith('r06.')&&!changed.has(e.id));
+check('R07 preserves 1176 unaffected R06 elements, room layout, TX catalogue and walk obstacles',()=>{
+  const source=data.elements.filter(e=>!e.id.startsWith('r07.')&&e.id!=='lstk-canopy');
   const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(source.length,1172);assert.equal(data.elements.length,1177);
-  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'c86c41b0e5efc00b6f4248d4ad7836186798a70b16172e957fd71653cc1628bf');
+  assert.equal(source.length,1176);assert.equal(data.elements.length,1178);
+  assert.equal(hash(source.map(e=>[e.id,e.layer,e.variant||'common',e.geometry])),'3be82c84c59a976cba70e731cdf09198227ad663e44e19d2c6c82b4f36b05fc7');
   assert.equal(hash([data.catalog,data.rooms]),'287ae3bcdcb27ec07fb140be933eff50d4f1b0f49263ec23355f34d4e4e492b7');
   assert.equal(hash(data.walk),'1c3af0a3de0671b6fc88c064b3a173c6cbb31305f8748e9685a3f01cfd87909b');
 });
@@ -200,9 +199,13 @@ check('Source profiles stay byte-identical; separated infill and frame form a lo
     assert.equal(hash(p),hash(src));
     if(!g.faceSelection){assert.equal(hash(ix),hash(original));continue;}
     assert.equal(g.faceSelection.mode,'exclude');assert(!g.panelOpenings);
-    const fill=data.elements.find(a=>a.id==='r06.infill.'+e.id);assert(fill);assert.equal(fill.layer,'ar.lstk.infill');assert.deepEqual(fill.geometry.faceSelection,{...g.faceSelection,mode:'include'});
+    const fill=data.elements.find(a=>a.id===(e.id==='lstk-canopy'?'r07':'r06')+'.infill.'+e.id);assert(fill);assert.equal(fill.layer,'ar.lstk.infill');assert.deepEqual(fill.geometry.faceSelection,{...g.faceSelection,mode:'include'});
     const ids=g.faceSelection.ranges.flatMap(([a,b])=>Array.from({length:b-a+1},(_,i)=>a+i));
-    const expected=e.id==='lstk-walls'?[289,'050584a15712cd31a55f5c2ffea2db34c3fc204647fe12a19651b40b59110677']:[48,'93166ca3d53e9ce57ba0ef57a94612246c5e5014666933f6f000b58d3d121f45'];
+    const expected={
+      'lstk-walls':[289,'050584a15712cd31a55f5c2ffea2db34c3fc204647fe12a19651b40b59110677'],
+      'lstk-roof':[48,'93166ca3d53e9ce57ba0ef57a94612246c5e5014666933f6f000b58d3d121f45'],
+      'lstk-canopy':[140,'277f3f12587b3915e041f56207dd9714941a9edd7af515d949e2422494913a92']
+    }[e.id];
     assert.equal(ids.length,expected[0]);assert.equal(hash(new Uint32Array(ids)),expected[1]);assert.equal(new Set(ids).size,ids.length);
     const removed=new Set(ids);let n=0;
     for(let f=0;f<original.length/3;f++)if(!removed.has(f))for(let k=0;k<3;k++)assert.equal(ix[n++],original[f*3+k]);
@@ -223,6 +226,23 @@ check('Source profiles stay byte-identical; separated infill and frame form a lo
     assert(Math.abs(area-2*((6.165-3.185)*3.88-.6*.55))<1e-5);
   }
   const layer=data.layers.find(l=>l.id==='ar.lstk.infill');assert(layer.defaultVisible);assert.equal(layer.variant,'lstk');assert(!variantById(data,'lstk').frameLayers.includes(layer.id));
+});
+check('All five canopy posts and both end trusses retain profiles without their solid envelopes',()=>{
+  const e=frame.find(e=>e.id==='lstk-canopy'),g=e.geometry,p=positions.get(e.id),ix=new Uint32Array(asset,g.indexByteOffset,g.indexCount);
+  const blocks=[...Array.from({length:9},(_,i)=>[108864+i*12,12]),[109644,12]];
+  const centers=new Set();
+  for(const [start,count] of blocks){
+    const points=[];for(let f=start;f<start+count;f++)for(let k=0;k<3;k++)points.push(Array.from(p.subarray(ix[f*3+k]*3,ix[f*3+k]*3+3)));
+    const unique=new Set(points.map(a=>a.join(',')));assert.equal(unique.size,8,'must be a plain solid envelope, not a perforated profile');
+    const low=[0,1,2].map(a=>Math.min(...points.map(p=>p[a]))),high=[0,1,2].map(a=>Math.max(...points.map(p=>p[a])));
+    assert(Math.abs(low[1])<1e-6);assert(Math.abs(high[1]-3.49)<1e-6);assert(Math.abs(high[2]-low[2]-.1)<1e-6);
+    assert([.2,.4].some(w=>Math.abs(high[0]-low[0]-w)<1e-6));centers.add(((low[0]+high[0])/2).toFixed(2));
+  }
+  assert.deepEqual([...centers].sort(),['0.10','10.50','2.65','5.30','7.95']);
+  for(const [a,b] of [[108844,108853],[108854,108863]]){
+    const points=[];for(let f=a;f<=b;f++)for(let k=0;k<3;k++)points.push(Array.from(p.subarray(ix[f*3+k]*3,ix[f*3+k]*3+3)));
+    assert.equal(new Set(points.map(a=>a.join(','))).size,8);assert(Math.abs(Math.max(...points.map(p=>p[1]))-3.95)<1e-6);
+  }
 });
 check('Bare LSTK walls are open between studs; toggled infill closes the same locations',()=>{
   const wall=gltf.scene.getObjectByName('lstk-walls'),fill=[];gltf.scene.traverse(o=>{if(o.userData.elementId==='r06.infill.lstk-walls')fill.push(o);});assert(fill.length);

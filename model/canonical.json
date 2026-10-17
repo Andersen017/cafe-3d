@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "title": "Кафе / проект в 3D",
-  "revision": "R06",
+  "revision": "R07",
   "date": "2026-10-17",
   "units": "m",
   "upAxis": "Y",
@@ -131,6 +131,13 @@
       "date": "2026-10-17",
       "type": "user-decision",
       "notes": "Скелет каркаса показывается без заполнения; исходная геометрия сохранена"
+    },
+    {
+      "id": "R07_DECISION",
+      "name": "Раскрытие стоек и торцов навеса ЛСТК",
+      "date": "2026-10-17",
+      "type": "user-decision",
+      "notes": "Продолжение разделения каркаса и заполнения; все пять стоек проверены"
     }
   ],
   "issues": [],
@@ -25909,6 +25916,19 @@
             3.950000047683716,
             2.5503528118133545
           ]
+        },
+        "faceSelection": {
+          "mode": "exclude",
+          "ranges": [
+            [
+              108844,
+              108971
+            ],
+            [
+              109644,
+              109655
+            ]
+          ]
         }
       },
       "finishMaterial": "finish_graphite"
@@ -37954,6 +37974,56 @@
           ]
         }
       }
+    },
+    {
+      "id": "r07.infill.lstk-canopy",
+      "name": "Импортированное заполнение / стойки и торцы навеса",
+      "layer": "ar.lstk.infill",
+      "variant": "lstk",
+      "costKey": null,
+      "material": "steel_lstk",
+      "status": "source",
+      "sources": [
+        "LSTK"
+      ],
+      "properties": {
+        "Состав": "Сплошные оболочки пяти сборных стоек и двух торцевых ферм навеса",
+        "Назначение": "Визуальное заполнение; материал и состав не назначены"
+      },
+      "geometry": {
+        "type": "indexedMesh",
+        "asset": "model/lstk-mesh.bin",
+        "positionByteOffset": 4677876,
+        "indexByteOffset": 5676552,
+        "vertexCount": 83223,
+        "indexCount": 328968,
+        "bounds": {
+          "min": [
+            -0.10000000149011612,
+            0,
+            0.09964732080698013
+          ],
+          "max": [
+            10.699999809265137,
+            3.950000047683716,
+            2.5503528118133545
+          ]
+        },
+        "faceSelection": {
+          "mode": "include",
+          "ranges": [
+            [
+              108844,
+              108971
+            ],
+            [
+              109644,
+              109655
+            ]
+          ]
+        }
+      },
+      "finishMaterial": "finish_graphite"
     }
   ],
   "walk": {
@@ -41696,10 +41766,25 @@
           ],
           "faceIndexSHA256": "93166ca3d53e9ce57ba0ef57a94612246c5e5014666933f6f000b58d3d121f45",
           "remainingFaces": 215325
+        },
+        "lstk-canopy": {
+          "faces": 140,
+          "ranges": [
+            [
+              108844,
+              108971
+            ],
+            [
+              109644,
+              109655
+            ]
+          ],
+          "faceIndexSHA256": "277f3f12587b3915e041f56207dd9714941a9edd7af515d949e2422494913a92",
+          "remainingFaces": 109516
         }
       },
       "sourceBinaryUnchanged": true
     }
   },
-  "build": "R06-20261017"
+  "build": "R07-20261017"
 }
