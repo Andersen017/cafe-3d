@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "title": "Кафе / проект в 3D",
-  "revision": "R10",
-  "date": "2026-10-17",
+  "revision": "R11",
+  "date": "2026-10-18",
   "units": "m",
   "upAxis": "Y",
   "origin": "Пересечение осей 1 / Б, чистый пол ±0,000. X — к оси 2; Z — против направления к оси В.",
@@ -50787,7 +50787,7 @@
       "sourceBinaryUnchanged": true
     }
   },
-  "build": "R10-20261017",
+  "build": "R11-20261018",
   "context": {
     "style": "blueprint",
     "placement": "original-cmm-axes",

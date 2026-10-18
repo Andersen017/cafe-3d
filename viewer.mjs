@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R10-20261017';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R10-20261017';
-import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R10-20261017';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R11-20261018';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R11-20261018';
+import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R11-20261018';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -25,6 +25,13 @@ let toastTimer,resizeObserver,labelItems=[],framingFactor=1;
 const target=new THREE.Vector3(5.3,1.4,-5.8);
 
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
+function setToolIcon(button,name){button.querySelector('use').setAttribute('href','#tool-'+name);}
+function setPanel(open,restoreFocus=false){
+  const show=open&&matchMedia('(max-width:850px)').matches;
+  document.body.classList.toggle('panel-open',show);
+  $('panel-backdrop').hidden=!show;$('panel-button').setAttribute('aria-expanded',String(show));
+  if(!show&&restoreFocus)$('panel-button').focus({preventScroll:true});
+}
 function setLayer(id,visible){const layer=layers.get(id);if(layer)layer.visible=visible;updateLayerUI();}
 function applyVariant(){
   for(const e of data.elements){const o=elementObjects.get(e.id);if(o)o.visible=elementInVariant(e,activeVariant)&&!hiddenElements.has(e.id);}
@@ -55,7 +62,7 @@ function catalogPanel(){
       }else{
         selected=null;$('selection-content').innerHTML=`<p class="eyebrow">Каталог ТХ · ${escape(c.code)}</p><h2>${escape(c.name)}</h2><p class="property"><span>Количество по спецификации</span>${c.quantity} шт.</p><p class="property">Оставлено без размещения до уточнения плана.</p>`;$('selection').hidden=false;$('hide-selection').disabled=true;$('focus-selection').disabled=true;
       }
-      document.body.classList.remove('panel-open');
+      setPanel(false);
     });$('catalog-list').append(b);
   }
 }
@@ -90,7 +97,7 @@ function updateContextButtons(){
   toggle.classList.toggle('active',count>0);toggle.dataset.partial=String(count>0&&count<ids.length);
   toggle.title=count?'Скрыть окружение; выбранные слои сохранятся':'Показать окружение';
   const motion=$('animation-toggle');motion.setAttribute('aria-pressed',String(animationEnabled));
-  motion.classList.toggle('active',animationEnabled);motion.textContent=animationEnabled?'Ⅱ Анимация':'▷ Анимация';
+  motion.classList.toggle('active',animationEnabled);setToolIcon(motion,animationEnabled?'pause':'play');
   motion.disabled=!['env.sky','env.traffic'].some(id=>layers.get(id)?.visible);
   motion.title=motion.disabled?'Покажите небо или транспорт, чтобы включить движение':animationEnabled?'Остановить движение; силуэты останутся видимыми':'Включить движение облаков, птиц и машины';
 }
@@ -136,7 +143,7 @@ function setEnvironment(mode){
   model.traverse(o=>{if(o.isMesh&&o.material?.name==='fixture_emitter')o.material.emissiveIntensity=night?3.0:.06;});
   document.body.dataset.environment=environmentMode;
   const toggle=$('environment-mode');
-  toggle.textContent=night?'☀ День':'☾ Вечер';
+  setToolIcon(toggle,night?'sun':'moon');
   toggle.setAttribute('aria-label',night?'Включить дневной режим':'Включить вечерний режим');
   toggle.title=night?'Сейчас вечер. Переключить на день':'Сейчас день. Переключить на вечер';
   model.traverse(o=>{
@@ -249,7 +256,7 @@ function chooseRoom(r){
   if(camera===orthographic){cameraView([x,28,z],[x,0,z],true);camera.zoom=Math.max(1,14/d);camera.updateProjectionMatrix();}
   else cameraView([x+d*.7,d*.8+2,z+d*.8],[x,.7,z]);
   selected={room:r};$('selection-content').innerHTML=`<p class="eyebrow">Помещение / АР</p><h2>${escape(r.name)}</h2><p class="property"><span>Площадь по экспликации АР</span>${number(r.area)} м²</p><p class="property"><span>Уровень пола</span>${number(r.height)} м</p>`;
-  $('selection').hidden=false;$('hide-selection').disabled=true;document.body.classList.remove('panel-open');
+  $('selection').hidden=false;$('hide-selection').disabled=true;setPanel(false);
   $('focus-selection').disabled=false;
 }
 function chooseElement(id){
@@ -291,7 +298,7 @@ function startWalk(id){
   walk=true;document.body.classList.add('is-walking');activeView='walk';defaultLayers();setSlice(false);$('selection').hidden=true;selected=null;
   cameraView(start.position,[start.position[0],start.position[1],start.position[2]-1]);
   controls.enabled=false;camera=perspective;walker=[start.position[0],start.position[2]];yaw=start.yaw;pitch=0;
-  $('walk-start').value=start.id;document.body.classList.remove('panel-open');viewUI();resize();
+  $('walk-start').value=start.id;setPanel(false);viewUI();resize();
 }
 function exitWalk(reset=true){
   walk=false;document.body.classList.remove('is-walking');keys.clear();joystickVector=[0,0];walkDrag=null;controls.enabled=true;$('walk-ui').hidden=true;
@@ -314,8 +321,11 @@ function resize(){
   const size=Math.max(25.2,14.5*h/w);orthographic.left=-size*w/h/2;orthographic.right=size*w/h/2;orthographic.top=size/2;orthographic.bottom=-size/2;orthographic.updateProjectionMatrix();
 }
 function events(){
-  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{setView(b.dataset.view);document.body.classList.remove('panel-open');}));
-  for(const id of ['panel-button','close-panel'])$(id).addEventListener('click',()=>document.body.classList.toggle('panel-open'));
+  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{setView(b.dataset.view);setPanel(false);}));
+  $('panel-button').addEventListener('click',()=>setPanel(!document.body.classList.contains('panel-open')));
+  $('close-panel').addEventListener('click',()=>setPanel(false,true));
+  $('panel-backdrop').addEventListener('click',event=>{event.preventDefault();event.stopPropagation();setPanel(false,true);});
+  matchMedia('(max-width:850px)').addEventListener('change',event=>{if(!event.matches)setPanel(false);});
   document.querySelectorAll('[data-panel]').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('[data-panel]').forEach(n=>n.classList.toggle('active',n===b));
     $('layers-panel').hidden=b.dataset.panel!=='layers';$('rooms-panel').hidden=b.dataset.panel!=='rooms';$('catalog-panel').hidden=b.dataset.panel!=='catalog';
@@ -326,11 +336,6 @@ function events(){
   $('home-button').addEventListener('click',()=>setView('overview'));
   $('context-toggle').addEventListener('click',toggleContext);
   $('animation-toggle').addEventListener('click',()=>{animationEnabled=!animationEnabled;updateContextButtons();});
-  $('facade-view').addEventListener('change',()=>{
-    const value=$('facade-view').value;if(!value)return;setView('overview');
-    const views={front:[[5.3,7,26],[5.3,2,-.5]],rear:[[5.3,12,-34],[5.3,1.5,-10.5]],left:[[-24,9,-6],[5.3,2,-6]],right:[[34,9,-6],[5.3,2,-6]]};
-    cameraView(...views[value]);$('view-label').textContent=$('facade-view').selectedOptions[0].textContent;
-  });
   $('close-selection').addEventListener('click',()=>$('selection').hidden=true);
   $('focus-selection').addEventListener('click',focusSelected);
   $('hide-selection').addEventListener('click',()=>{if(!selected?.id)return;elementObjects.get(selected.id).visible=false;hiddenElements.add(selected.id);$('selection').hidden=true;$('restore-elements').hidden=false;updateLayerUI();toast('Элемент скрыт. «Сбросить» вернёт все элементы.');});
@@ -356,6 +361,7 @@ function events(){
   renderer.domElement.addEventListener('pointerup',event=>{if(down&&Math.hypot(event.clientX-down.x,event.clientY-down.y)<5&&performance.now()-down.t<450)pick(event);down=null;walkDrag=null;});
   renderer.domElement.addEventListener('pointercancel',()=>{down=null;walkDrag=null;});
   window.addEventListener('keydown',event=>{
+    if(event.code==='Escape'&&document.body.classList.contains('panel-open')){event.preventDefault();setPanel(false,true);return;}
     if(!walk||['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName))return;
     if(event.code==='Escape'){exitWalk();return;}
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft'].includes(event.code)){keys.add(event.code);event.preventDefault();}

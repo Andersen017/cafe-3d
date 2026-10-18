@@ -5,13 +5,14 @@
   <meta name="theme-color" content="#253b37"><meta name="description" content="Интерактивная модель кафе: архитектура, оборудование и подключения по слоям. Обзор, план и прогулка внутри здания.">
   <title>Кафе / проект в 3D</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=R10-20261017">
+  <link rel="stylesheet" href="./styles.css?v=R11-20261018">
   <script type="importmap">{"imports":{"three":"./vendor/build/three.module.js","three/addons/":"./vendor/examples/jsm/"}}</script>
 </head>
 <body>
+  <svg class="tool-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><symbol id="tool-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol><symbol id="tool-moon" viewBox="0 0 24 24"><path d="M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z"/></symbol><symbol id="tool-trees" viewBox="0 0 24 24"><path d="m8 3-5 7h3l-4 6h12l-4-6h3L8 3Zm0 13v5m10-13 4 6h-2l3 4h-8m3 0v3"/></symbol><symbol id="tool-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7V5Z"/></symbol><symbol id="tool-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol><symbol id="tool-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9m-10 12v-8h6v8"/></symbol><symbol id="tool-camera" viewBox="0 0 24 24"><path d="M4 6h4l2-3h4l2 3h4a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></symbol></svg>
   <header class="topbar">
     <div class="brand"><span class="brand-mark">К</span><div><strong>КАФЕ</strong><span>Проект в 3D</span></div></div>
-    <div class="revision" id="revision">R10 · 17.10.2026</div>
+    <div class="revision" id="revision">R11 · 18.10.2026</div>
     <div class="top-actions"><button id="about-button" class="quiet">О модели</button><button id="fullscreen-button" class="icon-button" title="Полный экран" aria-label="Полный экран">⛶</button></div>
   </header>
   <main>
@@ -30,10 +31,11 @@
       <div class="slice-card"><label for="slice"><input id="slice-enabled" type="checkbox"> Горизонтальный срез</label><div class="slice-row"><input id="slice" type="range" min="0.2" max="5.2" value="1.6" step="0.05" aria-label="Высота среза"><output id="slice-value">1,60 м</output></div></div>
       <div class="sidebar-footer">АР 02.10 · ТХ 08.10 · ЛСТК 09.10<br><span>Модель дополняется по мере проектирования</span></div>
     </aside>
+    <button id="panel-backdrop" type="button" tabindex="-1" aria-label="Закрыть меню слоёв" hidden></button>
     <section id="viewport" aria-label="Трёхмерная модель кафе">
       <div id="canvas-host"></div>
       <div class="viewer-toolbar" role="toolbar" aria-label="Режим просмотра">
-        <button id="panel-button" class="panel-toggle" aria-label="Открыть слои">☷ <span>Слои</span></button>
+        <button id="panel-button" class="panel-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Открыть слои">☷ <span>Слои</span></button>
         <button data-view="overview" class="active">Обзор</button>
         <button data-view="site">Участок</button>
         <button data-view="plan">План</button>
@@ -43,7 +45,7 @@
         <button data-view="walk" class="walk-button">Прогулка</button>
       </div>
       <div class="view-label" id="view-label"><span class="live-dot"></span>Общий вид</div>
-      <div class="coordination-notice" id="coordination-notice"></div><div class="right-tools"><button id="environment-mode" type="button" aria-label="Включить дневной режим" title="Сейчас вечер. Переключить на день">☀ День</button><button id="context-toggle" class="scene-toggle active" type="button" aria-label="Окружение" aria-pressed="true" title="Скрыть окружение">◈ Окружение</button><button id="animation-toggle" class="scene-toggle active" type="button" aria-label="Анимация" aria-pressed="true" title="Остановить движение">Ⅱ Анимация</button><button id="home-button" class="icon-button" title="Исходный вид" aria-label="Исходный вид">⌂</button><button id="png-button" class="icon-button" title="Сохранить PNG" aria-label="Сохранить PNG">▧</button><select id="facade-view" aria-label="Вид фасада"><option value="">Фасады</option><option value="front">Навес / ось А</option><option value="rear">Терраса / ось В</option><option value="left">Фасад по оси 1</option><option value="right">Фасад по оси 2</option></select></div>
+      <div class="coordination-notice" id="coordination-notice"></div><div class="right-tools"><button id="environment-mode" type="button" aria-label="Включить дневной режим" title="Сейчас вечер. Переключить на день" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#tool-sun"/></svg></button><button id="context-toggle" class="scene-toggle active tool-button" type="button" aria-label="Окружение" aria-pressed="true" title="Скрыть окружение"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#tool-trees"/></svg></button><button id="animation-toggle" class="scene-toggle active tool-button" type="button" aria-label="Анимация" aria-pressed="true" title="Остановить движение"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#tool-pause"/></svg></button><button id="home-button" class="icon-button tool-button" title="Исходный вид" aria-label="Исходный вид"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#tool-home"/></svg></button><button id="png-button" class="icon-button tool-button" title="Сохранить снимок PNG" aria-label="Сохранить PNG"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#tool-camera"/></svg></button></div>
       <div id="selection" class="selection-card" hidden><button id="close-selection" class="icon-button" aria-label="Закрыть карточку">×</button><div id="selection-content"></div><div class="selection-actions"><button id="focus-selection">Приблизить</button><button id="hide-selection">Скрыть элемент</button><button id="restore-elements" hidden>Вернуть скрытые</button></div></div>
       <div class="view-bottom"><span id="hint">Мышь: вращение · колесо: масштаб · правая кнопка: сдвиг</span><span id="visible-count"></span></div>
       <div id="walk-ui" hidden><div class="walk-controls"><label>Начать в <select id="walk-start" aria-label="Начальная точка прогулки"></select></label><button id="exit-walk">Выйти из прогулки</button></div><div class="reticle">+</div><div id="joystick" aria-label="Джойстик прогулки"><span id="joystick-knob"></span></div><span class="walk-look-hint">Потяните справа, чтобы осмотреться</span></div>
@@ -52,8 +54,8 @@
       <div id="toast" role="status" hidden></div>
     </section>
   </main>
-  <dialog id="about-dialog"><button class="dialog-close icon-button" aria-label="Закрыть">×</button><p class="eyebrow">Кафе / R10</p><h2>Проект, который можно осмотреть</h2><p>ЛСТК и КМ сохранены как варианты. Кнопка «Участок» показывает чертёжное окружение по исходным осям ЦММ; здания, покрытия, ограждения и озеленение отключаются отдельно. В режиме «Каркас» сплошное заполнение ЛСТК скрыто; оно вынесено в отдельный слой. Выбор переключает комплект конструкций и ограждений, а слои позволяют осмотреть его части. Наружная отделка перенесена из выбранного дизайна r04: панели, объёмные деревянные ламели, белые вывески и оба дисплея. Откосы и отливы показывают заглубление окон. Окно подсобного помещения возвращено по АГО. Временная увязка каркаса выделена отдельным слоем до получения решения Direct Invest. Каталог оборудования и постоянные идентификаторы подготовлены для связи со сметой и эксплуатационными документами.</p><div id="about-content"></div><div class="dialog-actions"><a href="./assets/cafe.glb?v=R10-20261017" download>Скачать модель GLB</a><a href="./docs/MODEL_PASSPORT.md?v=R10-20261017" target="_blank" rel="noopener">Паспорт модели</a></div></dialog>
-  <noscript>Для интерактивного просмотра включите JavaScript. <a href="./assets/cafe.glb?v=R10-20261017">Скачать GLB</a></noscript>
-  <script type="module" src="./viewer.mjs?v=R10-20261017"></script>
+  <dialog id="about-dialog"><button class="dialog-close icon-button" aria-label="Закрыть">×</button><p class="eyebrow">Кафе / R11</p><h2>Проект, который можно осмотреть</h2><p>ЛСТК и КМ сохранены как варианты. Кнопка «Участок» показывает чертёжное окружение по исходным осям ЦММ; здания, покрытия, ограждения и озеленение отключаются отдельно. В режиме «Каркас» сплошное заполнение ЛСТК скрыто; оно вынесено в отдельный слой. Выбор переключает комплект конструкций и ограждений, а слои позволяют осмотреть его части. Наружная отделка перенесена из выбранного дизайна r04: панели, объёмные деревянные ламели, белые вывески и оба дисплея. Откосы и отливы показывают заглубление окон. Окно подсобного помещения возвращено по АГО. Временная увязка каркаса выделена отдельным слоем до получения решения Direct Invest. Каталог оборудования и постоянные идентификаторы подготовлены для связи со сметой и эксплуатационными документами.</p><div id="about-content"></div><div class="dialog-actions"><a href="./assets/cafe.glb?v=R11-20261018" download>Скачать модель GLB</a><a href="./docs/MODEL_PASSPORT.md?v=R11-20261018" target="_blank" rel="noopener">Паспорт модели</a></div></dialog>
+  <noscript>Для интерактивного просмотра включите JavaScript. <a href="./assets/cafe.glb?v=R11-20261018">Скачать GLB</a></noscript>
+  <script type="module" src="./viewer.mjs?v=R11-20261018"></script>
 </body>
 </html>
