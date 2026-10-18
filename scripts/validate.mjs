@@ -7,7 +7,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import {walkBlocked,groundAt,moveWalker,inPolygon} from './walk.mjs';
 import {includedElements,variantById} from './variants.mjs';
-import {carPose,createSceneryMotion} from './scenery-motion.mjs';
+import {carPose,createSceneryMotion,pedestrianPose} from './scenery-motion.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const json=await fs.readFile(path.join(root,'model/canonical.json'),'utf8');
 const data=JSON.parse(json);const passed=[];
@@ -214,9 +214,9 @@ check('Blueprint context stays within the 2 MB budget without textures, lights o
     if(o.isLine){contextStats.lines++;contextStats.segments+=(g.index?.count||g.attributes.position.count)/2;}
     else if(o.isMesh){contextStats.meshes++;contextStats.triangles+=(g.index?.count||g.attributes.position.count)/3;}
   });
-  assert(contextStats.lines>=4&&contextStats.lines<=18);assert(contextStats.meshes<=8);assert(contextStats.geometryBytes<2000000);assert(contextStats.triangles<15000);assert(contextStats.segments<10000);
+  assert(contextStats.lines>=4&&contextStats.lines<=36);assert(contextStats.meshes<=8);assert(contextStats.geometryBytes<2000000);assert(contextStats.triangles<15000);assert(contextStats.segments<10000);
 });
-check('R10 scenery adds independent common layers and retains every R09 element',()=>{
+check('Scenery layers stay common to both variants, with unchanged cafe layer composition',()=>{
   for(const id of ['env.sky','env.people','env.traffic']){
     const layer=data.layers.find(l=>l.id===id);assert(layer?.defaultVisible);assert(!layer.variant);
     for(const e of data.elements.filter(e=>e.layer===id)){assert.equal(e.status,'schematic');assert(!e.variant);}
@@ -226,6 +226,61 @@ check('R10 scenery adds independent common layers and retains every R09 element'
   const sky=data.elements.find(e=>e.layer==='env.sky').geometry;assert.equal(sky.clouds.length,3);
   assert.equal(data.elements.filter(e=>e.geometry.motion?.kind==='car').length,1);
   const celestial=[];gltf.scene.traverse(o=>{if(o.userData.skyMode)celestial.push(o.userData.skyMode);});assert.deepEqual(celestial.sort(),['day','evening']);
+});
+const occupants=data.elements.find(e=>e.id==='r10.context.people').geometry;
+check('R12 removes near crowns and seats six terrace guests, four indoor guests and a guard on existing chairs',()=>{
+  assert.equal(occupants.type,'contextOccupants');assert.equal(occupants.staticPeople.length,13);assert.equal(occupants.visitors.length,3);
+  const seated=occupants.staticPeople.filter(p=>p.pose==='seated');assert.equal(seated.length,11);assert.equal(new Set(seated.map(p=>p.chairId)).size,11);
+  for(const [room,n] of [['terrace',6],['hall',4]])assert.equal(seated.filter(p=>p.room===room&&p.role==='guest').length,n);
+  assert.equal(seated.filter(p=>p.role==='guard'&&p.room==='security').length,1);
+  const guard=seated.find(p=>p.role==='guard');for(const e of data.elements.filter(e=>e.layer==='tx.security'&&e.geometry.kind==='footprint_table'))assert(!inPolygon(guard.center[0],guard.center[2],e.geometry.footprint),'guard torso inside desk');
+  for(const p of seated){
+    const chair=data.elements.find(e=>e.id===p.chairId);assert(chair);assert(['chair','armchair'].includes(chair.geometry.kind));
+    assert.equal(p.center[0],chair.geometry.center[0]);assert.equal(p.center[2],chair.geometry.center[2]);assert.equal(p.rotation,chair.geometry.rotation||0);
+  }
+  for(const p of occupants.staticPeople.filter(p=>p.pose==='standing'))for(const variant of ['lstk','km'])assert(!walkBlocked(p.center[0],p.center[2],{...data,activeVariant:variant},.28),p.id);
+  const trees=data.elements.find(e=>e.layer==='env.green').geometry.trees;assert.equal(trees.length,7);
+  for(const t of trees){const [x,z]=t.center;assert(Math.hypot(Math.max(-.2-x,0,x-10.8),Math.max(-16.85-z,0,z-2.6))>=8);}
+  assert(trees.some(t=>t.sourceHandle==='1ECE')&&trees.some(t=>t.sourceHandle==='1ED5'));
+});
+check('Three staggered pedestrian routes cross the actual doors, clear walls and furniture in both variants, and never meet',()=>{
+  assert.deepEqual(occupants.visitors.map(r=>r.door).sort(),['ar.doors-003','ar.doors-004','ar.doors-005']);
+  assert.equal(new Set(occupants.visitors.map(r=>r.start)).size,3);assert.equal(new Set(occupants.visitors.map(r=>r.wait)).size,3);
+  for(const r of occupants.visitors){
+    assert.deepEqual(gltf.scene.getObjectByName('visitor-'+r.id).userData.contextMotion,r);
+    const door=data.elements.find(e=>e.id===r.door).geometry;let closest=Infinity;
+    for(let t=0;t<=r.period;t+=.1){
+      const p=pedestrianPose(t,r);closest=Math.min(closest,Math.hypot(p.x-door.center[0],p.z-door.center[2]));
+      for(const v of ['lstk','km'])assert(!walkBlocked(p.x,p.z,{...data,activeVariant:v},r.radius),`${r.id} ${v} ${t}`);
+      const floor=groundAt(p.x,p.z,data);assert(floor!==null&&p.y>=floor-.0001&&p.y<=floor+.151);
+      const next=pedestrianPose(t+.01,r);assert(Math.hypot(next.x-p.x,next.z-p.z)<=r.speed*.0101);assert(Math.cos(next.yaw-p.yaw)>.995);
+    }
+    assert(closest<.04,r.id+' does not cross its door');
+    const a=pedestrianPose(0,r),b=pedestrianPose(r.period-.00001,r);assert(Math.hypot(a.x-b.x,a.z-b.z)<1e-5);assert(Math.cos(a.yaw-b.yaw)>.999);
+  }
+  let overlap=0;
+  for(let t=0;t<occupants.visitors[0].period;t+=.1){
+    const poses=occupants.visitors.map(r=>pedestrianPose(t,r));
+    if(poses.filter(p=>p.moving).length===3)overlap++;
+    for(let i=0;i<poses.length;i++)for(let j=i+1;j<poses.length;j++)assert(Math.hypot(poses[i].x-poses[j].x,poses[i].z-poses[j].z)>.6);
+  }assert.equal(overlap,0,'all visitors move as one group');
+});
+check('Walking visitor limbs animate, pause and resume while seated guests stay static',()=>{
+  const group=gltf.scene.getObjectByName('visitor-left');assert(group);
+  const motion=createSceneryMotion(gltf.scene),still=gltf.scene.getObjectByName('seated-guests-and-staff');assert(still);
+  const positions=Array.from(still.geometry.attributes.position.array);
+  for(let i=0;i<140;i++)motion.update(.05,true);
+  const p=group.position.clone(),q=group.quaternion.clone();let changedLimb=false;
+  group.traverse(o=>{if(o.userData.pedestrianLimb&&Math.abs(o.rotation.x)>.01)changedLimb=true;});assert(changedLimb);
+  motion.update(.05,false);assert(group.position.equals(p)&&group.quaternion.equals(q));
+  const layer=gltf.scene.children.find(o=>o.userData.layerId==='env.people')||group.parent.parent;layer.visible=false;motion.update(.05,true);assert(group.position.equals(p));layer.visible=true;
+  motion.update(.05,true);assert(group.position.distanceTo(p)>.01);
+  assert.deepEqual(Array.from(still.geometry.attributes.position.array),positions);
+});
+check('Visitor speed follows elapsed seconds even when frame callbacks are infrequent',()=>{
+  const make=()=>{const root=new THREE.Group(),person=new THREE.Group();root.add(person);person.userData.contextMotion=occupants.visitors[0];return {person,motion:createSceneryMotion(root)};};
+  const fast=make(),slow=make();for(let i=0;i<140;i++)fast.motion.update(.05,true);for(let i=0;i<7;i++)slow.motion.update(1,true);
+  assert(fast.person.position.distanceTo(slow.person.position)<1e-7);assert(Math.abs(fast.person.quaternion.dot(slow.person.quaternion))>.999999);
 });
 check('Animated car remains on CMM road surfaces and has a continuous closed route',()=>{
   const car=data.elements.find(e=>e.id==='r10.context.car'),m=car.geometry.motion;

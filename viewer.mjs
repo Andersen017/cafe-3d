@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R11-20261018';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R11-20261018';
-import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R11-20261018';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R12-20261018';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R12-20261018';
+import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R12-20261018';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -98,8 +98,8 @@ function updateContextButtons(){
   toggle.title=count?'Скрыть окружение; выбранные слои сохранятся':'Показать окружение';
   const motion=$('animation-toggle');motion.setAttribute('aria-pressed',String(animationEnabled));
   motion.classList.toggle('active',animationEnabled);setToolIcon(motion,animationEnabled?'pause':'play');
-  motion.disabled=!['env.sky','env.traffic'].some(id=>layers.get(id)?.visible);
-  motion.title=motion.disabled?'Покажите небо или транспорт, чтобы включить движение':animationEnabled?'Остановить движение; силуэты останутся видимыми':'Включить движение облаков, птиц и машины';
+  motion.disabled=!['env.sky','env.traffic','env.people'].some(id=>layers.get(id)?.visible);
+  motion.title=motion.disabled?'Покажите людей, небо или транспорт, чтобы включить движение':animationEnabled?'Остановить движение; силуэты останутся видимыми':'Включить движение посетителей, облаков, птиц и машины';
 }
 function toggleContext(){
   const ids=contextLayers();
@@ -412,13 +412,14 @@ async function init(){
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['site','plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();
+  document.addEventListener('visibilitychange',()=>{last=performance.now();});
   const perf=query.has('perf')?{signature:'',warmup:0,samples:[],logged:false}:null;
   if(perf){const output=document.createElement('output');output.id='performance-readout';output.setAttribute('aria-label','Проверка производительности');output.className='performance-readout';output.textContent='Замер производительности…';$('viewport').append(output);}
   renderer.setAnimationLoop(time=>{
     const frameStart=performance.now(),interval=time-last,dt=Math.min(interval/1000,.05);last=time;
     if(walk)updateWalk(dt);else controls.update();if(time-lastLightUpdate>200){refreshFacadeLights();lastLightUpdate=time;}
     const motionStart=performance.now();
-    sceneryMotion.update(dt,animationEnabled&&!document.hidden);
+    sceneryMotion.update(Math.min(Math.max(interval/1000,0),1.2),animationEnabled&&!document.hidden);
     const motionMs=performance.now()-motionStart;
     renderer.render(scene,camera);updateLabels();
     if(perf){

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "title": "Кафе / проект в 3D",
-  "revision": "R11",
+  "revision": "R12",
   "date": "2026-10-18",
   "units": "m",
   "upAxis": "Y",
@@ -166,6 +166,13 @@
       "date": "2026-10-17",
       "type": "user-decision",
       "note": "Облака, птицы и одна машина с лёгким движением; люди, собака, коляска и скорая статичны. Не схема организации движения."
+    },
+    {
+      "id": "R12_DECISION",
+      "name": "Открытый вид кафе и несинхронное движение посетителей",
+      "type": "user-decision",
+      "date": "2026-10-18",
+      "note": "Дальние деревья сохранить; 6 гостей на террасе, 4 в зале, бармен и два охранника. Посетители используют обе боковые двери и выход на террасу, с разными стартами и паузами."
     }
   ],
   "issues": [],
@@ -46689,7 +46696,8 @@
       "sources": [
         "CMM_SITE",
         "SITE_PHOTOS",
-        "R08_DECISION"
+        "R08_DECISION",
+        "R12_DECISION"
       ],
       "id": "r08.context.green",
       "layer": "env.green",
@@ -46699,32 +46707,12 @@
         "trees": [
           {
             "center": [
-              1.1445,
-              -19.7317
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "1D81",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
               1.315,
               -30.6464
             ],
             "height": 7.5,
             "radius": 2.1,
             "sourceHandle": "1D88",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              7.9524,
-              -24.1381
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "1DA4",
             "status": "schematic-group"
           },
           {
@@ -46755,76 +46743,6 @@
             "height": 7.5,
             "radius": 2.1,
             "sourceHandle": "1EDF",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              14.6272,
-              -21.1814
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "1EE6",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              14.5317,
-              -10.31
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "1EED",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              14.5343,
-              -2.4898
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "1EF4",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              -2.3807,
-              -5.3333
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "2944",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              -4.5888,
-              -11.8176
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "294B",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              -4.0538,
-              -0.0824
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "2959",
-            "status": "schematic-group"
-          },
-          {
-            "center": [
-              -4.2905,
-              -19.4141
-            ],
-            "height": 7.5,
-            "radius": 2.1,
-            "sourceHandle": "2960",
             "status": "schematic-group"
           },
           {
@@ -46863,7 +46781,8 @@
       "properties": {
         "Основание": "Фотографии территории и зоны газонов ЦММ",
         "Положение": "Зоны озеленения; центры отдельных деревьев не устанавливаются",
-        "Габариты": "Высота 7,50 м и радиус крон 2,10 м условные; без листьев и теней"
+        "Габариты": "Высота 7,50 м и радиус крон 2,10 м условные; без листьев и теней",
+        "Отбор для показа": "Ближние к кафе условные кроны убраны; сохранены дальние группы не ближе 8 м от контура кафе и террасы"
       }
     },
     {
@@ -46920,56 +46839,302 @@
     },
     {
       "id": "r10.context.people",
-      "name": "Люди с ребёнком, собакой и коляской",
+      "name": "Гости кафе, сотрудники и посетители трёх входов",
       "layer": "env.people",
       "status": "schematic",
       "material": "context_building",
       "geometry": {
-        "type": "contextPeople",
-        "people": [
-          [
-            12.8,
-            -3.4,
-            1,
-            3.141592653589793,
-            "stroller"
-          ],
-          [
-            12.8,
-            -11,
-            1,
-            0.4,
-            "walk"
-          ],
-          [
-            13.5,
-            -10.5,
-            0.64,
-            -0.25,
-            "walk"
-          ],
-          [
-            12.8,
-            -18,
-            1,
-            0,
-            "walk"
-          ]
+        "type": "contextOccupants",
+        "staticPeople": [
+          {
+            "id": "seat-tx.furniture-071",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx.furniture-071",
+            "pose": "seated",
+            "center": [
+              1.5093289672994288,
+              -0.15,
+              -14.377710977697513
+            ],
+            "rotation": 0.3024982992383738,
+            "seatHeight": 0.4475
+          },
+          {
+            "id": "seat-tx.furniture-074",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx.furniture-074",
+            "pose": "seated",
+            "center": [
+              4.214755382498377,
+              -0.15,
+              -15.603755140994675
+            ],
+            "rotation": 2.7511674466542457,
+            "seatHeight": 0.4475
+          },
+          {
+            "id": "seat-tx-3252C4",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx-3252C4",
+            "pose": "seated",
+            "center": [
+              7.473602342306346,
+              -0.15,
+              -13.41458612519875
+            ],
+            "rotation": -1.2246467991473532e-16,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-3248BC",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx-3248BC",
+            "pose": "seated",
+            "center": [
+              9.695602342306346,
+              -0.15,
+              -14.424047669472406
+            ],
+            "rotation": 3.141592653589793,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-3252C9",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx-3252C9",
+            "pose": "seated",
+            "center": [
+              7.561917770354252,
+              -0.15,
+              -15.224159987133694
+            ],
+            "rotation": -1.2246467991473532e-16,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-3248C3",
+            "role": "guest",
+            "room": "terrace",
+            "chairId": "tx-3248C3",
+            "pose": "seated",
+            "center": [
+              9.783917770354252,
+              -0.15,
+              -15.276159987132763
+            ],
+            "rotation": -1.2246467991473532e-16,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-325430",
+            "role": "guest",
+            "room": "hall",
+            "chairId": "tx-325430",
+            "pose": "seated",
+            "center": [
+              0.727648610874312,
+              0.0,
+              -9.423791729475372
+            ],
+            "rotation": -1.5708669260711152,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-324931",
+            "role": "guest",
+            "room": "hall",
+            "chairId": "tx-324931",
+            "pose": "seated",
+            "center": [
+              4.589178748354432,
+              0.0,
+              -9.676633181073237
+            ],
+            "rotation": 2.195048074153444,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-3250ED",
+            "role": "guest",
+            "room": "hall",
+            "chairId": "tx-3250ED",
+            "pose": "seated",
+            "center": [
+              7.749366085968679,
+              0.0,
+              -9.064858414903282
+            ],
+            "rotation": 0.6242517473585474,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-32515E",
+            "role": "guest",
+            "room": "hall",
+            "chairId": "tx-32515E",
+            "pose": "seated",
+            "center": [
+              9.95689458708302,
+              0.0,
+              -5.6752284827972765
+            ],
+            "rotation": 1.5707257275186783,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "seat-tx-32647C",
+            "role": "guard",
+            "room": "security",
+            "chairId": "tx-32647C",
+            "pose": "seated",
+            "center": [
+              0.29270963347679935,
+              0.0,
+              -1.5416516555023845
+            ],
+            "rotation": -2.459826125102114,
+            "seatHeight": 0.4925
+          },
+          {
+            "id": "bartender",
+            "role": "bartender",
+            "room": "hall",
+            "pose": "standing",
+            "center": [
+              2.15,
+              0,
+              -5.08
+            ],
+            "rotation": 0
+          },
+          {
+            "id": "entrance-guard",
+            "role": "guard",
+            "room": "entrance",
+            "pose": "standing",
+            "center": [
+              1.3,
+              -0.15,
+              1.4
+            ],
+            "rotation": 3.141592653589793
+          }
         ],
-        "stroller": [
-          12.7,
-          -4.65
-        ],
-        "dog": [
-          13.8,
-          -17
+        "visitors": [
+          {
+            "id": "left",
+            "door": "ar.doors-004",
+            "points": [
+              [
+                -1.9,
+                -0.15,
+                -7.85
+              ],
+              [
+                -0.5,
+                -0.15,
+                -7.85
+              ],
+              [
+                -0.1,
+                0,
+                -7.85
+              ],
+              [
+                3.1,
+                0,
+                -7.85
+              ]
+            ],
+            "start": 5,
+            "wait": 19,
+            "speed": 0.78,
+            "period": 84,
+            "radius": 0.28,
+            "kind": "pedestrian",
+            "turnSeconds": 1.2
+          },
+          {
+            "id": "right",
+            "door": "ar.doors-005",
+            "points": [
+              [
+                7.3,
+                0,
+                -7.85
+              ],
+              [
+                10.7,
+                0,
+                -7.85
+              ],
+              [
+                11,
+                -0.15,
+                -7.85
+              ],
+              [
+                12.3,
+                -0.15,
+                -7.85
+              ]
+            ],
+            "start": 19,
+            "wait": 27,
+            "speed": 0.72,
+            "period": 84,
+            "radius": 0.28,
+            "kind": "pedestrian",
+            "turnSeconds": 1.2
+          },
+          {
+            "id": "terrace",
+            "door": "ar.doors-003",
+            "points": [
+              [
+                5.88,
+                -0.15,
+                -14.3
+              ],
+              [
+                5.88,
+                -0.15,
+                -11
+              ],
+              [
+                5.88,
+                0,
+                -10.7
+              ],
+              [
+                5.88,
+                0,
+                -7.8
+              ]
+            ],
+            "start": 36,
+            "wait": 23,
+            "speed": 0.68,
+            "period": 84,
+            "radius": 0.28,
+            "kind": "pedestrian",
+            "turnSeconds": 1.2
+          }
         ]
       },
       "sources": [
-        "R10_DECISION"
+        "R12_DECISION"
       ],
       "properties": {
-        "Назначение": "Условное оживление сцены; не проект благоустройства или организации движения"
+        "Назначение": "Условное оживление кафе, без изменения АР и ТХ",
+        "Гости": "6 сидящих на террасе; 4 сидящих в зале",
+        "Сотрудники": "Бармен за стойкой; охранник у металлодетектора; охранник в существующем кресле поста",
+        "Движение": "Три посетителя; отдельные старты, скорости и паузы; обе боковые двери и выход на террасу"
       }
     },
     {
@@ -50787,7 +50952,7 @@
       "sourceBinaryUnchanged": true
     }
   },
-  "build": "R11-20261018",
+  "build": "R12-20261018",
   "context": {
     "style": "blueprint",
     "placement": "original-cmm-axes",
