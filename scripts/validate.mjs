@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {walkBlocked,groundAt,moveWalker,inPolygon} from './walk.mjs';
 import {includedElements,variantById} from './variants.mjs';
 import {carPose,createSceneryMotion,pedestrianPose} from './scenery-motion.mjs';
+import {createDesignController,designById} from './designs.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const json=await fs.readFile(path.join(root,'model/canonical.json'),'utf8');
 const data=JSON.parse(json);const passed=[];
@@ -176,8 +177,8 @@ const bytes=await fs.readFile(path.join(root,'assets/cafe.glb'));
 assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(4),2);assert.equal(bytes.readUInt32LE(8),bytes.length);
 const document=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString('utf8').trim());
 const binaryStart=20+bytes.readUInt32LE(12)+8;
-check('Five PNG textures are embedded byte-for-byte in GLB with UVs; no external image dependencies',()=>{
-  assert.equal(document.images.length,5);assert.equal(document.textures.length,5);
+check('Six PNG textures are embedded byte-for-byte in GLB with UVs; no external image dependencies',()=>{
+  assert.equal(document.images.length,6);assert.equal(document.textures.length,6);
   for(const image of document.images){assert.equal(image.mimeType,'image/png');assert(!image.uri);const v=document.bufferViews[image.bufferView];
     assert(v.byteOffset+v.byteLength<=document.buffers[0].byteLength);const png=bytes.subarray(binaryStart+v.byteOffset,binaryStart+v.byteOffset+v.byteLength);
     assert.equal(png.readUInt32BE(0),0x89504e47);assert(png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0);
@@ -187,6 +188,48 @@ check('Five PNG textures are embedded byte-for-byte in GLB with UVs; no external
 for(const image of document.images){const v=document.bufferViews[image.bufferView];const embedded=bytes.subarray(binaryStart+v.byteOffset,binaryStart+v.byteOffset+v.byteLength);
   assert.deepEqual(embedded,await fs.readFile(path.join(root,'assets/textures',image.name)));}
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
+const designs=await createDesignController(gltf,data.designs);
+check('Graphite is design 1 and the fallback; the unchanged light finish is design 2',()=>{
+  assert.equal(data.designs.default,'graphite');assert.equal(designById(data.designs,'invalid').id,'graphite');
+  assert.deepEqual(data.designs.options.map(v=>[v.id,v.number]),[['graphite',1],['light',2]]);
+  assert(document.extensionsUsed.includes('KHR_materials_variants'));
+  const ext=document.extensions.KHR_materials_variants;
+  assert.deepEqual(ext.variants.map(v=>v.extras.id),['graphite','light']);
+  const srgb=new THREE.Color('#474b52').toArray();
+  for(const mesh of document.meshes)for(const primitive of mesh.primitives){
+    const pbr=document.materials[primitive.material];
+    if(pbr.name==='finish_stone'){
+      assert.deepEqual(pbr.pbrMetallicRoughness.baseColorFactor,[...srgb,1]);assert(!pbr.pbrMetallicRoughness.baseColorTexture);
+    }
+  }
+  assert(designs.surfaceCount>100);
+});
+check('Design switching preserves geometry, transforms, visibility and exact original light materials',()=>{
+  const entries=[];
+  gltf.scene.traverse(o=>{entries.push([o,o.geometry,o.matrix.toArray(),o.visible]);});
+  const signature=()=>entries.map(([o])=>[o.uuid,o.geometry?.uuid,o.matrix.toArray(),o.visible]);
+  const before=signature();
+  designs.set('light');assert.equal(designs.active,'light');
+  let wood=0,stone=0;
+  gltf.scene.traverse(o=>{
+    if(!o.isMesh)return;
+    const ref=gltf.parser.associations.get(o),p=document.meshes[ref?.meshes]?.primitives[ref?.primitives];
+    const mapping=p?.extensions?.KHR_materials_variants?.mappings;
+    if(!mapping)return;
+    const definition=document.materials[mapping.find(m=>m.variants.includes(1)).material];
+    const base=definition.name.replace(/__light$/,'');
+    assert.deepEqual(o.material.color.toArray(),new THREE.Color(data.materials[base].color).toArray());
+    if(base==='finish_wood'){assert(o.material.map);assert(o.material.vertexColors);wood++;}
+    if(base==='finish_stone'){assert(o.material.map);stone++;}
+  });
+  assert(wood>10&&stone>50);
+  const lightMaterials=entries.map(([o])=>o.material);
+  designs.set('graphite');assert.equal(designs.active,'graphite');
+  gltf.scene.traverse(o=>{if(o.isMesh&&o.material.name==='finish_stone')assert(!o.material.map);});
+  assert.deepEqual(signature(),before);
+  designs.set('light');assert.deepEqual(entries.map(([o])=>o.material),lightMaterials);
+  designs.set('graphite');
+});
 check('Exported GLB independently loads with all layers and element IDs',()=>{
   const layerIds=new Set(),ids=new Set();let meshes=0;
   gltf.scene.traverse(o=>{if(o.userData.layerId&&!o.userData.elementId)layerIds.add(o.userData.layerId);if(o.userData.elementId){ids.add(o.userData.elementId);assert.equal(o.userData.variant,data.elements.find(e=>e.id===o.userData.elementId).variant||'common');}if(o.isMesh){meshes++;for(const a of ['position','normal'])for(const n of o.geometry.attributes[a].array)assert(Number.isFinite(n));}});

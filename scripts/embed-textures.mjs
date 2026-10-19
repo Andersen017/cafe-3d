@@ -2,6 +2,7 @@
 // This keeps the build independent from native rasterizers and makes the downloaded GLB self-contained.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {Color} from 'three';
 export async function embedTextures(glb,data,root){
  const source=Buffer.from(glb),jsonLength=source.readUInt32LE(12);
  const doc=JSON.parse(source.subarray(20,20+jsonLength).toString('utf8').trim());
@@ -10,11 +11,9 @@ export async function embedTextures(glb,data,root){
  doc.images??=[];doc.textures??=[];doc.samplers??=[];
  const sampler=doc.samplers.push({magFilter:9729,minFilter:9987,wrapS:10497,wrapT:10497})-1;
  const textures=new Map();
- for(const material of doc.materials??[]){
-  const definition=data.materials[material.name];if(!definition?.texture)continue;
-  let index=textures.get(definition.texture);
+ async function texture(relative){
+  let index=textures.get(relative);
   if(index===undefined){
-   const relative=definition.texture;
    if(!/^assets\/textures\/[\w-]+\.png$/.test(relative))throw Error('Invalid texture asset: '+relative);
    const png=await fs.readFile(path.join(root,relative));
    if(png.readUInt32BE(0)!==0x89504e47)throw Error('Invalid PNG: '+relative);
@@ -25,8 +24,42 @@ export async function embedTextures(glb,data,root){
    index=doc.textures.push({source:image,sampler,name:path.basename(relative)})-1;
    textures.set(relative,index);
   }
-  material.pbrMetallicRoughness.baseColorTexture={index,texCoord:0};
-  if(definition.emissive)material.emissiveTexture={index,texCoord:0};
+  return {index,texCoord:0};
+ }
+ for(const material of doc.materials??[]){
+  const definition=data.materials[material.name];if(!definition?.texture)continue;
+  material.pbrMetallicRoughness.baseColorTexture=await texture(definition.texture);
+  if(definition.emissive)material.emissiveTexture=material.pbrMetallicRoughness.baseColorTexture;
+ }
+ if(data.designs){
+  const config=data.designs,baseMaterials=doc.materials.map(m=>structuredClone(m));
+  const changed=new Set(config.options.flatMap(v=>Object.keys(v.materials)));
+  const mappings=new Map();
+  for(let i=0;i<baseMaterials.length;i++){
+   const original=baseMaterials[i];if(!changed.has(original.name))continue;
+   const variants=[];
+   for(let v=0;v<config.options.length;v++){
+    const option=config.options[v],override=option.materials[original.name]||{};
+    const material=structuredClone(original),pbr=material.pbrMetallicRoughness;
+    if(override.color)pbr.baseColorFactor=[...new Color(override.color).toArray(),pbr.baseColorFactor?.[3]??1];
+    if(override.roughness!==undefined)pbr.roughnessFactor=override.roughness;
+    if(Object.hasOwn(override,'texture')){
+     if(override.texture)pbr.baseColorTexture=await texture(override.texture);
+     else delete pbr.baseColorTexture;
+    }
+    let index=i;
+    if(option.id===config.default)doc.materials[i]=material;
+    else {material.name=original.name+'__'+option.id;index=doc.materials.push(material)-1;}
+    variants.push({material:index,variants:[v]});
+   }
+   mappings.set(i,variants);
+  }
+  for(const mesh of doc.meshes)for(const primitive of mesh.primitives){
+   const variants=mappings.get(primitive.material);if(!variants)continue;
+   primitive.extensions??={};primitive.extensions.KHR_materials_variants={mappings:variants};
+  }
+  doc.extensions??={};doc.extensions.KHR_materials_variants={variants:config.options.map(v=>({name:v.name,extras:{id:v.id}}))};
+  doc.extensionsUsed??=[];doc.extensionsUsed.push('KHR_materials_variants');
  }
  doc.buffers[0].byteLength=binary.length;
  const rawJson=Buffer.from(JSON.stringify(doc));

@@ -1,6 +1,6 @@
 {
-  "revision": "R12",
-  "date": "2026-10-18",
+  "revision": "R13",
+  "date": "2026-10-19",
   "elements": 1186,
   "layers": 41,
   "rooms": 10,
@@ -9,7 +9,7 @@
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 26278752,
+  "glbBytes": 26505452,
   "bounds": {
     "min": [
       -24,
@@ -23,11 +23,26 @@
     ]
   },
   "runtime": "three 0.180.0",
+  "designs": {
+    "default": "graphite",
+    "options": [
+      {
+        "id": "graphite",
+        "number": 1,
+        "name": "Графит и табак"
+      },
+      {
+        "id": "light",
+        "number": 2,
+        "name": "Светлый"
+      }
+    ]
+  },
   "context": {
     "triangles": 5544,
     "segments": 3754,
     "drawObjects": 35,
-    "glbIncreaseBytes": 518200,
+    "glbIncreaseBytes": 744900,
     "budgetBytes": 2000000
   }
 }

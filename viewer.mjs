@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R12-20261018';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R12-20261018';
-import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R12-20261018';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R13-20261019';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R13-20261019';
+import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R13-20261019';
+import {createDesignController,designById} from './scripts/designs.mjs?v=R13-20261019';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,6 +14,7 @@ const layers=new Map(),elementObjects=new Map(),metadata=new Map(),hiddenElement
 const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
+let designs;
 let environmentMode='evening',environmentLights,facadeFixtures=[],lastLightUpdate=0;
 let sceneryMotion,animationEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches,contextMuted=false;
 let contextSnapshot=new Map();
@@ -51,6 +53,16 @@ function variantPanel(){
     input.addEventListener('change',()=>setVariant(v.id));
     const span=document.createElement('span');span.innerHTML=`<strong>${escape(v.name)}</strong><small>${escape(v.subtitle)}</small>`;label.append(input,span);$('variant-options').append(label);
   }
+}
+function setDesign(id,announce=false){
+  const design=designs.set(id),next=data.designs.options.find(v=>v.id!==design.id);
+  const button=$('design-toggle');
+  button.dataset.design=design.id;
+  button.setAttribute('aria-label','Дизайн '+design.number+': '+design.name);
+  button.title='Сейчас '+design.name+'. Переключить: '+next.name;
+  button.querySelector('.design-number').textContent=design.number;
+  const url=new URL(location.href);url.searchParams.set('design',design.id);history.replaceState(null,'',url);
+  if(announce)toast('Дизайн '+design.number+' · '+design.name);
 }
 function catalogPanel(){
   for(const c of [...data.catalog].sort((a,b)=>a.code.localeCompare(b.code,'ru',{numeric:true}))){
@@ -398,6 +410,8 @@ async function init(){
     if(o.isMesh){o.castShadow=!o.userData.context&&!o.material.transparent&&metadata.get(o.parent?.userData.elementId)?.geometry.type!=='indexedMesh';o.receiveShadow=!o.userData.context;}
   });
   if(layers.size!==data.layers.length||elementObjects.size!==data.elements.length)throw new Error('Состав GLB не совпадает с описанием модели');
+  designs=await createDesignController(gltf,data.designs);
+  setDesign(designById(data.designs,new URLSearchParams(location.search).get('design')).id);
   for(const e of data.elements.filter(e=>e.finishMaterial))elementObjects.get(e.id).traverse(o=>{
     if(o.isMesh){o.material=o.material.clone();finishPaints.push({material:o.material,source:e.material,finish:e.finishMaterial});}
   });
@@ -408,6 +422,7 @@ async function init(){
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
   applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
   $('environment-mode').addEventListener('click',()=>setEnvironment(environmentMode==='evening'?'day':'evening'));
+  $('design-toggle').addEventListener('click',()=>setDesign(data.designs.options.find(v=>v.id!==designs.active).id,true));
   setEnvironment(new URLSearchParams(location.search).get('light')==='day'?'day':'evening');
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['site','plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
