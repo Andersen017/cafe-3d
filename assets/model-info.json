@@ -1,6 +1,6 @@
 {
-  "revision": "R13",
-  "date": "2026-10-19",
+  "revision": "R14",
+  "date": "2026-10-20",
   "elements": 1186,
   "layers": 41,
   "rooms": 10,
@@ -9,7 +9,7 @@
     "km"
   ],
   "catalogItems": 47,
-  "glbBytes": 26505452,
+  "glbBytes": 26722356,
   "bounds": {
     "min": [
       -24,
@@ -24,16 +24,21 @@
   },
   "runtime": "three 0.180.0",
   "designs": {
-    "default": "graphite",
+    "default": "walnut",
     "options": [
       {
-        "id": "graphite",
+        "id": "walnut",
         "number": 1,
+        "name": "Графит и тёмный орех"
+      },
+      {
+        "id": "graphite",
+        "number": 2,
         "name": "Графит и табак"
       },
       {
         "id": "light",
-        "number": 2,
+        "number": 3,
         "name": "Светлый"
       }
     ]
@@ -42,7 +47,7 @@
     "triangles": 5544,
     "segments": 3754,
     "drawObjects": 35,
-    "glbIncreaseBytes": 744900,
+    "glbIncreaseBytes": 961804,
     "budgetBytes": 2000000
   }
 }

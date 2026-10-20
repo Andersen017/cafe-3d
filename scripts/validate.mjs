@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import {walkBlocked,groundAt,moveWalker,inPolygon} from './walk.mjs';
 import {includedElements,variantById} from './variants.mjs';
 import {carPose,createSceneryMotion,pedestrianPose} from './scenery-motion.mjs';
-import {createDesignController,designById} from './designs.mjs';
+import {createDesignController,designById,nextDesign} from './designs.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const json=await fs.readFile(path.join(root,'model/canonical.json'),'utf8');
 const data=JSON.parse(json);const passed=[];
@@ -177,8 +177,8 @@ const bytes=await fs.readFile(path.join(root,'assets/cafe.glb'));
 assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(4),2);assert.equal(bytes.readUInt32LE(8),bytes.length);
 const document=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString('utf8').trim());
 const binaryStart=20+bytes.readUInt32LE(12)+8;
-check('Six PNG textures are embedded byte-for-byte in GLB with UVs; no external image dependencies',()=>{
-  assert.equal(document.images.length,6);assert.equal(document.textures.length,6);
+check('Seven PNG textures are embedded byte-for-byte in GLB with UVs; no external image dependencies',()=>{
+  assert.equal(document.images.length,7);assert.equal(document.textures.length,7);
   for(const image of document.images){assert.equal(image.mimeType,'image/png');assert(!image.uri);const v=document.bufferViews[image.bufferView];
     assert(v.byteOffset+v.byteLength<=document.buffers[0].byteLength);const png=bytes.subarray(binaryStart+v.byteOffset,binaryStart+v.byteOffset+v.byteLength);
     assert.equal(png.readUInt32BE(0),0x89504e47);assert(png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0);
@@ -189,12 +189,12 @@ for(const image of document.images){const v=document.bufferViews[image.bufferVie
   assert.deepEqual(embedded,await fs.readFile(path.join(root,'assets/textures',image.name)));}
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 const designs=await createDesignController(gltf,data.designs);
-check('Graphite is design 1 and the fallback; the unchanged light finish is design 2',()=>{
-  assert.equal(data.designs.default,'graphite');assert.equal(designById(data.designs,'invalid').id,'graphite');
-  assert.deepEqual(data.designs.options.map(v=>[v.id,v.number]),[['graphite',1],['light',2]]);
+check('Dark walnut r06 is design 1 and fallback; r05 and r04 are designs 2 and 3',()=>{
+  assert.equal(data.designs.default,'walnut');assert.equal(designById(data.designs,'invalid').id,'walnut');
+  assert.deepEqual(data.designs.options.map(v=>[v.id,v.number]),[['walnut',1],['graphite',2],['light',3]]);
   assert(document.extensionsUsed.includes('KHR_materials_variants'));
   const ext=document.extensions.KHR_materials_variants;
-  assert.deepEqual(ext.variants.map(v=>v.extras.id),['graphite','light']);
+  assert.deepEqual(ext.variants.map(v=>v.extras.id),['walnut','graphite','light']);
   const srgb=new THREE.Color('#474b52').toArray();
   for(const mesh of document.meshes)for(const primitive of mesh.primitives){
     const pbr=document.materials[primitive.material];
@@ -203,6 +203,11 @@ check('Graphite is design 1 and the fallback; the unchanged light finish is desi
     }
   }
   assert(designs.surfaceCount>100);
+});
+check('The palette button cycles through all three designs and returns to the first',()=>{
+  const cycle=[];let id='walnut';
+  for(let i=0;i<7;i++){cycle.push(id);id=nextDesign(data.designs,id).id;}
+  assert.deepEqual(cycle,['walnut','graphite','light','walnut','graphite','light','walnut']);
 });
 check('Design switching preserves geometry, transforms, visibility and exact original light materials',()=>{
   const entries=[];
@@ -216,7 +221,7 @@ check('Design switching preserves geometry, transforms, visibility and exact ori
     const ref=gltf.parser.associations.get(o),p=document.meshes[ref?.meshes]?.primitives[ref?.primitives];
     const mapping=p?.extensions?.KHR_materials_variants?.mappings;
     if(!mapping)return;
-    const definition=document.materials[mapping.find(m=>m.variants.includes(1)).material];
+    const definition=document.materials[mapping.find(m=>m.variants.includes(2)).material];
     const base=definition.name.replace(/__light$/,'');
     assert.deepEqual(o.material.color.toArray(),new THREE.Color(data.materials[base].color).toArray());
     if(base==='finish_wood'){assert(o.material.map);assert(o.material.vertexColors);wood++;}
@@ -225,10 +230,17 @@ check('Design switching preserves geometry, transforms, visibility and exact ori
   assert(wood>10&&stone>50);
   const lightMaterials=entries.map(([o])=>o.material);
   designs.set('graphite');assert.equal(designs.active,'graphite');
-  gltf.scene.traverse(o=>{if(o.isMesh&&o.material.name==='finish_stone')assert(!o.material.map);});
+  gltf.scene.traverse(o=>{if(o.isMesh&&o.material.name==='finish_stone__graphite')assert(!o.material.map);});
+  const tobaccoMaterials=entries.map(([o])=>o.material);
+  designs.set('walnut');assert.equal(designs.active,'walnut');
+  let walnutSurfaces=0;
+  gltf.scene.traverse(o=>{if(o.isMesh&&o.material.name==='finish_wood'){assert(o.material.map);assert(o.material.vertexColors);walnutSurfaces++;}});
+  assert(walnutSurfaces>10);
   assert.deepEqual(signature(),before);
   designs.set('light');assert.deepEqual(entries.map(([o])=>o.material),lightMaterials);
   designs.set('graphite');
+  assert.deepEqual(entries.map(([o])=>o.material),tobaccoMaterials);
+  designs.set('walnut');
 });
 check('Exported GLB independently loads with all layers and element IDs',()=>{
   const layerIds=new Set(),ids=new Set();let meshes=0;

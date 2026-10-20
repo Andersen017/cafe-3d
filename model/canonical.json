@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "title": "Кафе / проект в 3D",
-  "revision": "R13",
-  "date": "2026-10-19",
+  "revision": "R14",
+  "date": "2026-10-20",
   "units": "m",
   "upAxis": "Y",
   "origin": "Пересечение осей 1 / Б, чистый пол ±0,000. X — к оси 2; Z — против направления к оси В.",
@@ -178,7 +178,13 @@
       "id": "DESIGN_R05",
       "name": "Второй набор материалов экстерьера: графит и табак",
       "revision": "19.10.2026 / r05",
-      "note": "Матовые панели RAL 7024, табачные ламели и графитовая подшивка; геометрия R12 сохраняется. В просмотрщике это дизайн 1 по умолчанию."
+      "note": "Матовые панели RAL 7024, табачные ламели и графитовая подшивка; промежуточный дизайн, сохранён как вариант 2."
+    },
+    {
+      "id": "DESIGN_R06",
+      "name": "Согласованный дизайн экстерьера: графит и тёмный орех",
+      "revision": "20.10.2026 / r06",
+      "note": "Матовые панели RAL 7024, тёмный орех тёплого шоколадного оттенка. Основной дизайн 1; геометрия R13 сохраняется."
     }
   ],
   "issues": [],
@@ -301,7 +307,7 @@
       "name": "Фасад: панели и деревянные ламели",
       "group": "Отделка",
       "defaultVisible": true,
-      "description": "Два оформления на общей геометрии: 1 — графит и табачные ламели r05, 2 — светлый r04. Каркас и существующие проёмы сохранены."
+      "description": "Три оформления на общей геометрии: 1 — графит и тёмный орех r06, 2 — графит и табак r05, 3 — светлый r04. Каркас и проёмы сохранены."
     },
     {
       "id": "design.interior",
@@ -50958,7 +50964,7 @@
       "sourceBinaryUnchanged": true
     }
   },
-  "build": "R13-20261019",
+  "build": "R14-20261020",
   "context": {
     "style": "blueprint",
     "placement": "original-cmm-axes",
@@ -51073,12 +51079,50 @@
     "sourcePlanHash": "17238c77f8f50cf69ce35166b7f69a4b56c1828c7521428016c9dde678a055be"
   },
   "designs": {
-    "default": "graphite",
+    "default": "walnut",
     "scope": "Exterior material variants on shared geometry. Interior, construction, equipment and surroundings stay common.",
     "options": [
       {
-        "id": "graphite",
+        "id": "walnut",
         "number": 1,
+        "name": "Графит и тёмный орех",
+        "reference": "r06 / 20.10.2026",
+        "materials": {
+          "finish_stone": {
+            "color": "#474b52",
+            "roughness": 0.87,
+            "texture": null
+          },
+          "finish_reveal": {
+            "color": "#474b52",
+            "roughness": 0.87
+          },
+          "finish_joint": {
+            "color": "#35393f",
+            "roughness": 0.9
+          },
+          "finish_backing": {
+            "color": "#30251e",
+            "roughness": 0.95
+          },
+          "finish_wood": {
+            "color": "#ffffff",
+            "roughness": 0.78,
+            "texture": "assets/textures/dark-walnut.png"
+          },
+          "soffit": {
+            "color": "#474b52",
+            "roughness": 0.94
+          },
+          "soffit_joint": {
+            "color": "#35393f",
+            "roughness": 0.95
+          }
+        }
+      },
+      {
+        "id": "graphite",
+        "number": 2,
         "name": "Графит и табак",
         "reference": "r05 / 19.10.2026",
         "materials": {
@@ -51116,7 +51160,7 @@
       },
       {
         "id": "light",
-        "number": 2,
+        "number": 3,
         "name": "Светлый",
         "reference": "R12 / r04",
         "materials": {}

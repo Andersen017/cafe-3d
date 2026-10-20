@@ -2,6 +2,10 @@
 export function designById(config,id){
   return config.options.find(v=>v.id===id)||config.options.find(v=>v.id===config.default);
 }
+export function nextDesign(config,id){
+  const current=designById(config,id);
+  return config.options[(config.options.indexOf(current)+1)%config.options.length];
+}
 
 export async function createDesignController(gltf,config){
   const parser=gltf.parser,extension=parser.json.extensions?.KHR_materials_variants;

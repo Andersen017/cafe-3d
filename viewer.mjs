@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R13-20261019';
-import {elementInVariant,variantById} from './scripts/variants.mjs?v=R13-20261019';
-import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R13-20261019';
-import {createDesignController,designById} from './scripts/designs.mjs?v=R13-20261019';
+import {groundAt,walkBlocked,moveWalker,inPolygon} from './scripts/walk.mjs?v=R14-20261020';
+import {elementInVariant,variantById} from './scripts/variants.mjs?v=R14-20261020';
+import {createSceneryMotion} from './scripts/scenery-motion.mjs?v=R14-20261020';
+import {createDesignController,designById,nextDesign} from './scripts/designs.mjs?v=R14-20261020';
 
 const $=id=>document.getElementById(id);
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +15,7 @@ const finishPaints=[];
 let activeView='overview',selected=null,sliceActive=false,sliceHeight=1.6;
 let activeVariant='lstk';
 let designs;
-let environmentMode='evening',environmentLights,facadeFixtures=[],lastLightUpdate=0;
+let environmentMode='day',environmentLights,facadeFixtures=[],lastLightUpdate=0;
 let sceneryMotion,animationEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches,contextMuted=false;
 let contextSnapshot=new Map();
 const contextLayers=()=>data.layers.filter(l=>l.id.startsWith('env.')&&l.id!=='env.site');
@@ -55,7 +55,7 @@ function variantPanel(){
   }
 }
 function setDesign(id,announce=false){
-  const design=designs.set(id),next=data.designs.options.find(v=>v.id!==design.id);
+  const design=designs.set(id),next=nextDesign(data.designs,design.id);
   const button=$('design-toggle');
   button.dataset.design=design.id;
   button.setAttribute('aria-label','Дизайн '+design.number+': '+design.name);
@@ -422,8 +422,8 @@ async function init(){
   for(const start of data.walk.starts){const option=document.createElement('option');option.value=start.id;option.textContent=start.name;$('walk-start').append(option);}
   applyVariant();variantPanel();layerPanel();roomPanel();catalogPanel();events();
   $('environment-mode').addEventListener('click',()=>setEnvironment(environmentMode==='evening'?'day':'evening'));
-  $('design-toggle').addEventListener('click',()=>setDesign(data.designs.options.find(v=>v.id!==designs.active).id,true));
-  setEnvironment(new URLSearchParams(location.search).get('light')==='day'?'day':'evening');
+  $('design-toggle').addEventListener('click',()=>setDesign(nextDesign(data.designs,designs.active).id,true));
+  setEnvironment(new URLSearchParams(location.search).get('light')==='evening'?'evening':'day');
   const query=new URLSearchParams(location.search);const view=query.get('view');setView(['site','plan','interior','engineering','frame','walk'].includes(view)?view:'overview');
   $('loading').hidden=true;
   let last=performance.now();
